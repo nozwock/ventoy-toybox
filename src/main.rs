@@ -4,7 +4,7 @@ use eframe::egui;
 
 fn main() {
     // let native_options = eframe::NativeOptions::default();
-    let options = eframe::NativeOptions {
+    let native_options = eframe::NativeOptions {
         // Hide the OS-specific "chrome" around the window:
         // decorated: true,
         // To have rounded corners we need transparency:
@@ -14,7 +14,7 @@ fn main() {
     };
     eframe::run_native(
         "Ventoy Toybox App",
-        options,
+        native_options,
         Box::new(|cc| Box::new(app::ToyboxApp::new(cc))),
     );
 }

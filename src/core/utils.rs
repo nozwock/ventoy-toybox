@@ -18,8 +18,7 @@ impl Feeds {
         const URL: &str =
             "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json";
         let response = ureq::get(URL).call()?;
-        let feeds = response.into_string()?;
-        let feeds: Vec<FeedsItem> = serde_json::from_str(&feeds)?;
+        let feeds: Vec<FeedsItem> = response.into_json()?;
         dbg!(&feeds);
         return Ok(feeds);
     }
