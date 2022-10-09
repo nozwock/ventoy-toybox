@@ -1,3 +1,2 @@
-mod app;
-pub use app::ToyboxApp;
-pub mod feeds;
+pub mod core;
+pub mod gui;

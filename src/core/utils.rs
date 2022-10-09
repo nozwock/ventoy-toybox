@@ -2,25 +2,25 @@ use anyhow::{Ok, Result};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
-pub struct Feeds {}
+pub struct Feeds;
 
 #[derive(Deserialize, Debug)]
 pub struct FeedsItem {
-    group: String,
-    name: String,
-    torrent_url: String,
-    magnet: String,
-    date: String,
+    pub group: String,
+    pub name: String,
+    pub torrent_url: String,
+    pub magnet: String,
+    pub date: String,
 }
 
 impl Feeds {
-    pub fn new() -> Result<()> {
+    pub fn new() -> Result<Vec<FeedsItem>> {
         const URL: &str =
             "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json";
         let response = ureq::get(URL).call()?;
         let feeds = response.into_string()?;
         let feeds: Vec<FeedsItem> = serde_json::from_str(&feeds)?;
         dbg!(&feeds);
-        return Ok(());
+        return Ok(feeds);
     }
 }

@@ -1,8 +1,8 @@
 use anyhow::{Result, Ok};
-use ventoy_toybox::feeds;
+use ventoy_toybox::core::utils::Feeds;
 
 
 fn main() -> Result<()> {
-    feeds::Feeds::new()?;
+    Feeds::new()?;
     Ok(())
 }

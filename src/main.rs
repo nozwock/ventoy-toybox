@@ -1,3 +1,5 @@
+mod gui;
+use crate::gui::app;
 use eframe::egui;
 
 fn main() {
@@ -13,6 +15,6 @@ fn main() {
     eframe::run_native(
         "Ventoy Toybox App",
         options,
-        Box::new(|cc| Box::new(ventoy_toybox::ToyboxApp::new(cc))),
+        Box::new(|cc| Box::new(app::ToyboxApp::new(cc))),
     );
 }
