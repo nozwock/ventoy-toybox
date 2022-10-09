@@ -3,6 +3,6 @@ use ventoy_toybox::feeds;
 
 
 fn main() -> Result<()> {
-    feeds::Feeds::new();
+    feeds::Feeds::new()?;
     Ok(())
 }

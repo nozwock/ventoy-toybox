@@ -5,7 +5,7 @@ use serde::Deserialize;
 pub struct Feeds {}
 
 #[derive(Deserialize, Debug)]
-struct FeedsItem {
+pub struct FeedsItem {
     group: String,
     name: String,
     torrent_url: String,
