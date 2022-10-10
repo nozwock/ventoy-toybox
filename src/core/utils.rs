@@ -1,4 +1,4 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -21,5 +21,15 @@ impl Feeds {
         let feeds: Vec<FeedsItem> = response.into_json()?;
         dbg!(&feeds);
         return Ok(feeds);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn feeds_fetch()  {
+        assert!(Feeds::new().is_ok());
     }
 }
