@@ -15,9 +15,10 @@ pub struct FeedsItem {
 
 impl Feeds {
     pub fn new() -> Result<Vec<FeedsItem>> {
-        const URL: &str =
-            "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json";
-        let response = ureq::get(URL).call()?;
+        let response = ureq::get(
+            "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json",
+        )
+        .call()?;
         let feeds: Vec<FeedsItem> = response.into_json()?;
         dbg!(&feeds);
         return Ok(feeds);
@@ -29,7 +30,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn feeds_fetch()  {
-        assert!(Feeds::new().is_ok());
+    fn feeds_fetch() {
+        let result = Feeds::new();
+        assert!(result.is_ok(), "fetch failed!\n{:?}", result);
     }
 }
