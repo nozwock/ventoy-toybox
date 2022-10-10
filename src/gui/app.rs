@@ -10,6 +10,7 @@ struct ReleaseFeedsData {
 // #[derive(serde::Deserialize, serde::Serialize)]
 // #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ToyboxApp {
+    curr_frame: AppFrame,
     release_feeds: Vec<ReleaseFeedsData>,
 
     // Example stuff:
@@ -18,6 +19,12 @@ pub struct ToyboxApp {
     // this how you opt-out of serialization of a member
     // #[serde(skip)]
     value: f32,
+}
+
+#[derive(Debug, PartialEq)]
+enum AppFrame {
+    VentoyUpdate,
+    ReleaseBrowse,
 }
 
 // impl Default for ToyboxApp {
@@ -53,6 +60,7 @@ impl ToyboxApp {
             magnet: format!("magnet:?xt=2fhSomeRandomChars8ru1ur10rh01g0930g093weg{}", x),
         });
         ToyboxApp {
+            curr_frame: AppFrame::VentoyUpdate,
             release_feeds: Vec::from_iter(dummy_feeds),
             label: "hello".to_string(),
             value: 3.4,
@@ -82,6 +90,23 @@ impl ToyboxApp {
             ui.separator();
         }
     }
+    fn render_header(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered(|ui| {
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.curr_frame,
+                    AppFrame::VentoyUpdate,
+                    "🕫  Ventoy Updates",
+                );
+                ui.selectable_value(
+                    &mut self.curr_frame,
+                    AppFrame::ReleaseBrowse,
+                    "🔍  Browse Releases",
+                );
+            });
+        });
+        ui.separator();
+    }
 
     fn configure_fonts(&self, ctx: &egui::Context) {
         let mut fonts = egui::FontDefinitions::default();
@@ -100,6 +125,7 @@ impl eframe::App for ToyboxApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let Self {
+            curr_frame,
             release_feeds,
             label,
             value,
@@ -125,6 +151,7 @@ impl eframe::App for ToyboxApp {
         // });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            self.render_header(ui);
             ui.heading("App");
 
             // ui.horizontal(|ui| {
