@@ -103,6 +103,7 @@ impl ToyboxApp {
             ui.separator();
         }
     }
+
     fn render_header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(
@@ -119,28 +120,7 @@ impl ToyboxApp {
         ui.separator();
     }
 
-    // fn configure_fonts(&self, ctx: &egui::Context) {
-    //     let mut fonts = egui::FontDefinitions::default();
-    // }
-}
-
-impl eframe::App for ToyboxApp {
-    /// Called by the frame work to save state before shutdown.
-    // fn save(&mut self, storage: &mut dyn eframe::Storage) {
-    //     eframe::set_value(storage, eframe::APP_KEY, self);
-    // }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
-    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // let Self {
-        //     filter_release: filter_entry,
-        //     curr_frame,
-        //     config,
-        //     label,
-        //     value,
-        // } = self;
-
+    fn configure_fonts(&self, ctx: &egui::Context) {
         let mut style = (*ctx.style()).clone();
         // style.override_font_id = Some(egui::FontId::proportional(24.));
         // for (_text_style, font_id) in style.text_styles.iter_mut() {
@@ -162,9 +142,27 @@ impl eframe::App for ToyboxApp {
             .unwrap()
             .size = 18.;
         ctx.set_style(style);
+    }
+}
 
-        // custom_window_frame(ctx, frame, " Ventoy Toybox", |ui| {
-        // ui.label("This is just the contents of the window");
+impl eframe::App for ToyboxApp {
+    /// Called by the frame work to save state before shutdown.
+    // fn save(&mut self, storage: &mut dyn eframe::Storage) {
+    //     eframe::set_value(storage, eframe::APP_KEY, self);
+    // }
+
+    /// Called each time the UI needs repainting, which may be many times per second.
+    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // let Self {
+        //     filter_release: filter_entry,
+        //     curr_frame,
+        //     config,
+        //     label,
+        //     value,
+        // } = self;
+
+        self.configure_fonts(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_header(ui);
@@ -210,6 +208,7 @@ impl eframe::App for ToyboxApp {
                 }
             }
         });
+
         // ui.horizontal(|ui| {
         //     ui.label("egui theme:");
         //     egui::widgets::global_dark_light_mode_switch(ui);
@@ -267,15 +266,6 @@ impl eframe::App for ToyboxApp {
 
         // egui::SidePanel::left("side_panel").show(ctx, |ui| {
         // });
-
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
-        }
     }
 }
 
@@ -292,82 +282,3 @@ fn render_release_footer(ctx: &egui::Context) {
         })
     });
 }
-
-// custom frame is from egui examples at:
-// https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.rs
-// fn custom_window_frame(
-//     ctx: &egui::Context,
-//     frame: &mut eframe::Frame,
-//     title: &str,
-//     add_contents: impl FnOnce(&mut egui::Ui),
-// ) {
-//     use egui::*;
-//     let text_color = ctx.style().visuals.text_color();
-
-//     // Height of the title bar
-//     let height = 28.0;
-
-//     CentralPanel::default()
-//         .frame(Frame::none())
-//         .show(ctx, |ui| {
-//             let rect = ui.max_rect();
-//             let painter = ui.painter();
-
-//             // Paint the frame:
-//             painter.rect(
-//                 rect.shrink(1.0),
-//                 10.0,
-//                 ctx.style().visuals.window_fill(),
-//                 Stroke::new(1.0, text_color),
-//             );
-
-//             // Paint the title:
-//             painter.text(
-//                 rect.center_top() + vec2(0.0, height / 2.0),
-//                 Align2::CENTER_CENTER,
-//                 title,
-//                 FontId::proportional(height * 0.8),
-//                 text_color,
-//             );
-
-//             // Paint the line under the title:
-//             painter.line_segment(
-//                 [
-//                     rect.left_top() + vec2(2.0, height),
-//                     rect.right_top() + vec2(-2.0, height),
-//                 ],
-//                 Stroke::new(1.0, text_color),
-//             );
-
-//             // Add the close button:
-//             let close_response = ui.put(
-//                 Rect::from_min_size(rect.left_top(), Vec2::splat(height)),
-//                 Button::new(RichText::new("❌").size(height - 4.0)).frame(false),
-//             );
-//             if close_response.clicked() {
-//                 frame.close();
-//             }
-
-//             // Interact with the title bar (drag to move window):
-//             let title_bar_rect = {
-//                 let mut rect = rect;
-//                 rect.max.y = rect.min.y + height;
-//                 rect
-//             };
-//             let title_bar_response =
-//                 ui.interact(title_bar_rect, Id::new("title_bar"), Sense::click());
-//             if title_bar_response.is_pointer_button_down_on() {
-//                 frame.drag_window();
-//             }
-
-//             // Add the contents:
-//             let content_rect = {
-//                 let mut rect = rect;
-//                 rect.min.y = title_bar_rect.max.y;
-//                 rect
-//             }
-//             .shrink(4.0);
-//             let mut content_ui = ui.child_ui(content_rect, *ui.layout());
-//             add_contents(&mut content_ui);
-//         });
-// }

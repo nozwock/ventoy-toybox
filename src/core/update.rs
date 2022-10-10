@@ -1,10 +1,6 @@
+use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use anyhow::{Result, anyhow};
-use {
-    std::fs,
-    std::io::copy,
-    std::path::PathBuf,
-};
+use {std::fs, std::io::copy, std::path::PathBuf};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Release {
