@@ -1,17 +1,12 @@
 use eframe::egui::{self, ScrollArea};
-
-struct ReleaseFeedsData {
-    name: String,
-    torrent_url: String,
-    magnet: String,
-}
+use crate::core::utils::FeedsItem;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 // #[derive(serde::Deserialize, serde::Serialize)]
 // #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ToyboxApp {
     curr_frame: AppFrame,
-    release_feeds: Vec<ReleaseFeedsData>,
+    release_feeds: Vec<FeedsItem>,
 
     // Example stuff:
     label: String,
@@ -40,7 +35,7 @@ enum AppFrame {
 
 impl ToyboxApp {
     /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customized the look at feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -51,13 +46,15 @@ impl ToyboxApp {
         // }
 
         // Self::default()
-        let dummy_feeds = (1..=500).map(|x| ReleaseFeedsData {
+        let dummy_feeds = (1..=500).map(|x| FeedsItem {
+            group: format!("?group{}", x),
             name: format!("some-xyz-linux-distro-etc{}.iso.torrent", x),
             torrent_url: format!(
                 "https://blahblahblah.uwu/some-xyz-linux-distro-etc{}.iso.torrent",
                 x
             ),
             magnet: format!("magnet:?xt=2fhSomeRandomChars8ru1ur10rh01g0930g093weg{}", x),
+            date: format!("?date{}", x),
         });
         ToyboxApp {
             curr_frame: AppFrame::ReleaseBrowse,
@@ -76,12 +73,12 @@ impl ToyboxApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
                     ui.add(egui::Hyperlink::from_label_and_url(
-                        "Magnet Link 🔗",
+                        "Magnet Link ⤴",
                         &item.magnet,
                     ));
                     ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
                     ui.add(egui::Hyperlink::from_label_and_url(
-                        "Torrent 🔗",
+                        "Torrent ⤴",
                         &item.torrent_url,
                     ));
                 });
@@ -108,9 +105,9 @@ impl ToyboxApp {
         ui.separator();
     }
 
-    fn configure_fonts(&self, ctx: &egui::Context) {
-        let mut fonts = egui::FontDefinitions::default();
-    }
+    // fn configure_fonts(&self, ctx: &egui::Context) {
+    //     let mut fonts = egui::FontDefinitions::default();
+    // }
 }
 
 fn render_footer(ui: &mut egui::Ui) {}

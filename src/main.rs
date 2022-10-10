@@ -1,4 +1,5 @@
 mod gui;
+mod core;
 use crate::gui::app;
 use eframe::egui;
 
