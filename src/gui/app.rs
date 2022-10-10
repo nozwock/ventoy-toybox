@@ -1,5 +1,5 @@
-use eframe::egui::{self, ScrollArea};
 use crate::core::utils::FeedsItem;
+use eframe::egui::{self, ScrollArea};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 // #[derive(serde::Deserialize, serde::Serialize)]
@@ -7,6 +7,7 @@ use crate::core::utils::FeedsItem;
 pub struct ToyboxApp {
     curr_frame: AppFrame,
     release_feeds: Vec<FeedsItem>,
+    filter_release: String,
 
     // Example stuff:
     label: String,
@@ -46,7 +47,7 @@ impl ToyboxApp {
         // }
 
         // Self::default()
-        let dummy_feeds = (1..=500).map(|x| FeedsItem {
+        let dummy_feeds = (1..=250).map(|x| FeedsItem {
             group: format!("?group{}", x),
             name: format!("some-xyz-linux-distro-etc{}.iso.torrent", x),
             torrent_url: format!(
@@ -57,6 +58,7 @@ impl ToyboxApp {
             date: format!("?date{}", x),
         });
         ToyboxApp {
+            filter_release: String::new(),
             curr_frame: AppFrame::ReleaseBrowse,
             release_feeds: Vec::from_iter(dummy_feeds),
             label: "hello".to_string(),
@@ -71,12 +73,12 @@ impl ToyboxApp {
             ui.horizontal(|ui| {
                 ui.label(&item.name);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
+                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
                     ui.add(egui::Hyperlink::from_label_and_url(
                         "Magnet Link ⤴",
                         &item.magnet,
                     ));
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
+                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
                     ui.add(egui::Hyperlink::from_label_and_url(
                         "Torrent ⤴",
                         &item.torrent_url,
@@ -88,19 +90,17 @@ impl ToyboxApp {
         }
     }
     fn render_header(&mut self, ui: &mut egui::Ui) {
-        ui.vertical_centered(|ui| {
-            ui.horizontal(|ui| {
-                ui.selectable_value(
-                    &mut self.curr_frame,
-                    AppFrame::VentoyUpdate,
-                    "🕫  Ventoy Updates",
-                );
-                ui.selectable_value(
-                    &mut self.curr_frame,
-                    AppFrame::ReleaseBrowse,
-                    "🔍  Browse Releases",
-                );
-            });
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.curr_frame,
+                AppFrame::VentoyUpdate,
+                "🕫  Ventoy Updates",
+            );
+            ui.selectable_value(
+                &mut self.curr_frame,
+                AppFrame::ReleaseBrowse,
+                "🔍  Browse Releases",
+            );
         });
         ui.separator();
     }
@@ -109,8 +109,6 @@ impl ToyboxApp {
     //     let mut fonts = egui::FontDefinitions::default();
     // }
 }
-
-fn render_footer(ui: &mut egui::Ui) {}
 
 impl eframe::App for ToyboxApp {
     /// Called by the frame work to save state before shutdown.
@@ -122,63 +120,104 @@ impl eframe::App for ToyboxApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let Self {
+            filter_release: filter_entry,
             curr_frame,
             release_feeds,
             label,
             value,
         } = self;
 
-        custom_window_frame(ctx, frame, " Ventoy Toybox", |ui| {
-            // ui.label("This is just the contents of the window");
-            // ui.horizontal(|ui| {
-            //     ui.label("egui theme:");
-            //     egui::widgets::global_dark_light_mode_buttons(ui);
-            // });
+        let mut style = (*ctx.style()).clone();
+        // style.override_font_id = Some(egui::FontId::proportional(24.));
+        // for (_text_style, font_id) in style.text_styles.iter_mut() {
+        //     font_id.size = 16.;
+        // }
+        style
+            .text_styles
+            .get_mut(&egui::TextStyle::Body)
+            .unwrap()
+            .size = 16.;
+        style
+            .text_styles
+            .get_mut(&egui::TextStyle::Heading)
+            .unwrap()
+            .size = 28.;
+        style
+            .text_styles
+            .get_mut(&egui::TextStyle::Button)
+            .unwrap()
+            .size = 18.;
+        ctx.set_style(style);
 
-            // egui::CentralPanel::default().show(ctx, |ui| {
+        // custom_window_frame(ctx, frame, " Ventoy Toybox", |ui| {
+        // ui.label("This is just the contents of the window");
+
+        egui::CentralPanel::default().show(ctx, |ui| {
             self.render_header(ui);
-            ui.heading("App");
+            match self.curr_frame {
+                AppFrame::VentoyUpdate => {}
+                AppFrame::ReleaseBrowse => {
+                    egui::warn_if_debug_build(ui);
+                    ui.collapsing("Filter", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("Filter by name:");
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.filter_release)
+                                    .desired_width(120.0),
+                            );
+                            self.filter_release = self.filter_release.to_lowercase();
+                            if ui.button("ｘ").clicked() {
+                                self.filter_release.clear();
+                            }
+                        })
+                    });
+                    ui.separator();
 
-            // ui.horizontal(|ui| {
-            //     ui.label("Write something: ");
-            //     ui.text_edit_singleline(label);
-            // });
-
-            // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            // if ui.button("Increment").clicked() {
-            //     *value += 1.0;
-            // }
-
-            // // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-            //     ui.horizontal(|ui| {
-            //         ui.spacing_mut().item_spacing.x = 0.0;
-            //         ui.label("powered by ");
-            //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-            //         ui.label(" and ");
-            //         ui.hyperlink_to(
-            //             "eframe",
-            //             "https://github.com/emilk/egui/tree/master/crates/eframe",
-            //         );
-            //         ui.label(".");
-            //     });
-            // // });
-
-            // // The central panel the region left after adding TopPanel's and SidePanel's
-
-            // ui.heading("eframe template");
-            // // ui.hyperlink("https://github.com/emilk/eframe_template");
-            // ui.add(egui::github_link_file!(
-            //     "https://github.com/nozwock/ventoy-toybox",
-            //     "nozwock/ventoy-toybox"
-            // ));
-            egui::warn_if_debug_build(ui);
-
-            ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    self.render_release_cards(ui);
-                });
+                    ScrollArea::vertical()
+                        .auto_shrink([false; 2])
+                        .show(ui, |ui| {
+                            self.render_release_cards(ui);
+                        });
+                }
+            }
         });
+        // ui.horizontal(|ui| {
+        //     ui.label("egui theme:");
+        //     egui::widgets::global_dark_light_mode_switch(ui);
+        // });
+
+        // ui.horizontal(|ui| {
+        //     ui.label("Write something: ");
+        //     ui.text_edit_singleline(label);
+        // });
+
+        // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
+        // if ui.button("Increment").clicked() {
+        //     *value += 1.0;
+        // }
+
+        // // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+        //     ui.horizontal(|ui| {
+        //         ui.spacing_mut().item_spacing.x = 0.0;
+        //         ui.label("powered by ");
+        //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+        //         ui.label(" and ");
+        //         ui.hyperlink_to(
+        //             "eframe",
+        //             "https://github.com/emilk/egui/tree/master/crates/eframe",
+        //         );
+        //         ui.label(".");
+        //     });
+        // // });
+
+        // // The central panel the region left after adding TopPanel's and SidePanel's
+
+        // ui.heading("eframe template");
+        // // ui.hyperlink("https://github.com/emilk/eframe_template");
+        // ui.add(egui::github_link_file!(
+        //     "https://github.com/nozwock/ventoy-toybox",
+        //     "nozwock/ventoy-toybox"
+        // ));
         // });
 
         // Examples of how to create different panels and windows.
@@ -213,79 +252,79 @@ impl eframe::App for ToyboxApp {
 
 // custom frame is from egui examples at:
 // https://github.com/emilk/egui/blob/master/examples/custom_window_frame/src/main.rs
-fn custom_window_frame(
-    ctx: &egui::Context,
-    frame: &mut eframe::Frame,
-    title: &str,
-    add_contents: impl FnOnce(&mut egui::Ui),
-) {
-    use egui::*;
-    let text_color = ctx.style().visuals.text_color();
+// fn custom_window_frame(
+//     ctx: &egui::Context,
+//     frame: &mut eframe::Frame,
+//     title: &str,
+//     add_contents: impl FnOnce(&mut egui::Ui),
+// ) {
+//     use egui::*;
+//     let text_color = ctx.style().visuals.text_color();
 
-    // Height of the title bar
-    let height = 28.0;
+//     // Height of the title bar
+//     let height = 28.0;
 
-    CentralPanel::default()
-        .frame(Frame::none())
-        .show(ctx, |ui| {
-            let rect = ui.max_rect();
-            let painter = ui.painter();
+//     CentralPanel::default()
+//         .frame(Frame::none())
+//         .show(ctx, |ui| {
+//             let rect = ui.max_rect();
+//             let painter = ui.painter();
 
-            // Paint the frame:
-            painter.rect(
-                rect.shrink(1.0),
-                10.0,
-                ctx.style().visuals.window_fill(),
-                Stroke::new(1.0, text_color),
-            );
+//             // Paint the frame:
+//             painter.rect(
+//                 rect.shrink(1.0),
+//                 10.0,
+//                 ctx.style().visuals.window_fill(),
+//                 Stroke::new(1.0, text_color),
+//             );
 
-            // Paint the title:
-            painter.text(
-                rect.center_top() + vec2(0.0, height / 2.0),
-                Align2::CENTER_CENTER,
-                title,
-                FontId::proportional(height * 0.8),
-                text_color,
-            );
+//             // Paint the title:
+//             painter.text(
+//                 rect.center_top() + vec2(0.0, height / 2.0),
+//                 Align2::CENTER_CENTER,
+//                 title,
+//                 FontId::proportional(height * 0.8),
+//                 text_color,
+//             );
 
-            // Paint the line under the title:
-            painter.line_segment(
-                [
-                    rect.left_top() + vec2(2.0, height),
-                    rect.right_top() + vec2(-2.0, height),
-                ],
-                Stroke::new(1.0, text_color),
-            );
+//             // Paint the line under the title:
+//             painter.line_segment(
+//                 [
+//                     rect.left_top() + vec2(2.0, height),
+//                     rect.right_top() + vec2(-2.0, height),
+//                 ],
+//                 Stroke::new(1.0, text_color),
+//             );
 
-            // Add the close button:
-            let close_response = ui.put(
-                Rect::from_min_size(rect.left_top(), Vec2::splat(height)),
-                Button::new(RichText::new("❌").size(height - 4.0)).frame(false),
-            );
-            if close_response.clicked() {
-                frame.close();
-            }
+//             // Add the close button:
+//             let close_response = ui.put(
+//                 Rect::from_min_size(rect.left_top(), Vec2::splat(height)),
+//                 Button::new(RichText::new("❌").size(height - 4.0)).frame(false),
+//             );
+//             if close_response.clicked() {
+//                 frame.close();
+//             }
 
-            // Interact with the title bar (drag to move window):
-            let title_bar_rect = {
-                let mut rect = rect;
-                rect.max.y = rect.min.y + height;
-                rect
-            };
-            let title_bar_response =
-                ui.interact(title_bar_rect, Id::new("title_bar"), Sense::click());
-            if title_bar_response.is_pointer_button_down_on() {
-                frame.drag_window();
-            }
+//             // Interact with the title bar (drag to move window):
+//             let title_bar_rect = {
+//                 let mut rect = rect;
+//                 rect.max.y = rect.min.y + height;
+//                 rect
+//             };
+//             let title_bar_response =
+//                 ui.interact(title_bar_rect, Id::new("title_bar"), Sense::click());
+//             if title_bar_response.is_pointer_button_down_on() {
+//                 frame.drag_window();
+//             }
 
-            // Add the contents:
-            let content_rect = {
-                let mut rect = rect;
-                rect.min.y = title_bar_rect.max.y;
-                rect
-            }
-            .shrink(4.0);
-            let mut content_ui = ui.child_ui(content_rect, *ui.layout());
-            add_contents(&mut content_ui);
-        });
-}
+//             // Add the contents:
+//             let content_rect = {
+//                 let mut rect = rect;
+//                 rect.min.y = title_bar_rect.max.y;
+//                 rect
+//             }
+//             .shrink(4.0);
+//             let mut content_ui = ui.child_ui(content_rect, *ui.layout());
+//             add_contents(&mut content_ui);
+//         });
+// }
