@@ -1,20 +1,25 @@
-use crate::core::utils::FeedsItem;
-use eframe::egui::{self, ScrollArea};
+use crate::core::utils;
+use eframe::egui::{self, RichText, ScrollArea};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 // #[derive(serde::Deserialize, serde::Serialize)]
 // #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct ToyboxApp {
     curr_frame: AppFrame,
-    release_feeds: Vec<FeedsItem>,
+    config: ToyboxAppConfig,
     filter_release: String,
-
+    release_groups: Vec<String>,
+    release_curr_group_idx: usize,
     // Example stuff:
-    label: String,
+    // label: String,
 
     // this how you opt-out of serialization of a member
     // #[serde(skip)]
-    value: f32,
+    // value: f32,
+}
+
+pub struct ToyboxAppConfig {
+    pub release_feeds: Vec<utils::FeedsItem>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -22,17 +27,6 @@ enum AppFrame {
     VentoyUpdate,
     ReleaseBrowse,
 }
-
-// impl Default for ToyboxApp {
-//     fn default() -> Self {
-//         Self {
-//             // Example stuff:
-//             label: "Hello World!".to_owned(),
-//             value: 2.7,
-//             release_feeds: Vec::new(),
-//         }
-//     }
-// }
 
 impl ToyboxApp {
     /// Called once before the first frame.
@@ -47,7 +41,8 @@ impl ToyboxApp {
         // }
 
         // Self::default()
-        let dummy_feeds = (1..=250).map(|x| FeedsItem {
+
+        let dummy_feeds = (1..=250).map(|x| utils::FeedsItem {
             group: format!("?group{}", x),
             name: format!("some-xyz-linux-distro-etc{}.iso.torrent", x),
             torrent_url: format!(
@@ -57,17 +52,36 @@ impl ToyboxApp {
             magnet: format!("magnet:?xt=2fhSomeRandomChars8ru1ur10rh01g0930g093weg{}", x),
             date: format!("?date{}", x),
         });
-        ToyboxApp {
+        let mut dummy_groups = dummy_feeds
+            .clone()
+            .map(|x| x.group)
+            .collect::<Vec<String>>();
+        dummy_groups.insert(0, "all".to_owned());
+        let dummy_feeds = Vec::from_iter(dummy_feeds);
+
+        // let feeds = utils::Feeds::new().unwrap();
+        // let mut groups = feeds
+        //     .clone()
+        //     .into_iter()
+        //     .map(|x| x.group)
+        //     .collect::<Vec<String>>();
+        // groups.insert(0, "all".to_owned());
+
+        // use poll promise for waiting while u fetch those juicy json
+
+        Self {
+            release_groups: dummy_groups,
+            release_curr_group_idx: 0,
             filter_release: String::new(),
             curr_frame: AppFrame::ReleaseBrowse,
-            release_feeds: Vec::from_iter(dummy_feeds),
-            label: "hello".to_string(),
-            value: 3.4,
+            config: ToyboxAppConfig {
+                release_feeds: dummy_feeds,
+            },
         }
     }
 
     fn render_release_cards(&self, ui: &mut egui::Ui) {
-        for item in &self.release_feeds {
+        for item in &self.config.release_feeds {
             const PADDING: f32 = 3.0;
             ui.add_space(PADDING);
             ui.horizontal(|ui| {
@@ -99,7 +113,7 @@ impl ToyboxApp {
             ui.selectable_value(
                 &mut self.curr_frame,
                 AppFrame::ReleaseBrowse,
-                "🔍  Browse Releases",
+                "🔍  Browse OS Releases",
             );
         });
         ui.separator();
@@ -118,14 +132,14 @@ impl eframe::App for ToyboxApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self {
-            filter_release: filter_entry,
-            curr_frame,
-            release_feeds,
-            label,
-            value,
-        } = self;
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // let Self {
+        //     filter_release: filter_entry,
+        //     curr_frame,
+        //     config,
+        //     label,
+        //     value,
+        // } = self;
 
         let mut style = (*ctx.style()).clone();
         // style.override_font_id = Some(egui::FontId::proportional(24.));
@@ -158,18 +172,33 @@ impl eframe::App for ToyboxApp {
                 AppFrame::VentoyUpdate => {}
                 AppFrame::ReleaseBrowse => {
                     egui::warn_if_debug_build(ui);
-                    ui.collapsing("Filter", |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label("Filter by name:");
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.filter_release)
-                                    .desired_width(120.0),
-                            );
-                            self.filter_release = self.filter_release.to_lowercase();
-                            if ui.button("ｘ").clicked() {
-                                self.filter_release.clear();
-                            }
-                        })
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                            ui.collapsing("Filter", |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.label("Filter by name:");
+                                    ui.add(
+                                        egui::TextEdit::singleline(&mut self.filter_release)
+                                            .desired_width(120.0),
+                                    );
+                                    self.filter_release = self.filter_release.to_lowercase();
+                                    if ui.button("ｘ").clicked() {
+                                        self.filter_release.clear();
+                                    }
+
+                                    egui::ComboBox::from_id_source("group-combobox").show_index(
+                                        ui,
+                                        &mut self.release_curr_group_idx,
+                                        self.release_groups.len(),
+                                        |idx| self.release_groups[idx].to_owned(),
+                                    )
+                                })
+                            });
+                        });
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                            let refresh_btn = ui.button("🔃");
+                            if refresh_btn.clicked() {}
+                        });
                     });
                     ui.separator();
 
@@ -248,6 +277,20 @@ impl eframe::App for ToyboxApp {
             });
         }
     }
+}
+
+fn render_release_footer(ctx: &egui::Context) {
+    egui::TopBottomPanel::bottom("release-footer").show(ctx, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(10.);
+            ui.label(RichText::new("Source: distrowatch.com").monospace());
+            ui.add(egui::Hyperlink::from_label_and_url(
+                "nozwock/ventoy-toybox",
+                "https://github.com/nozwock/ventoy-toybox",
+            ));
+            ui.add_space(10.);
+        })
+    });
 }
 
 // custom frame is from egui examples at:
