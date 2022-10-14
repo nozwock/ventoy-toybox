@@ -225,6 +225,12 @@ impl eframe::App for ToyboxApp {
             }
         };
 
+        // ----------------------------------------------
+
+        if let AppFrame::ReleaseBrowse = self.curr_page {
+            render_release_footer(ctx);
+        }
+
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_header(ui); // mutable borrow here
             match self.curr_page {
