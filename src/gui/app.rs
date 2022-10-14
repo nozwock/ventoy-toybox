@@ -1,4 +1,4 @@
-use crate::core::utils;
+use crate::core::utils::FeedsItem;
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
 
@@ -6,28 +6,28 @@ use poll_promise::Promise;
 // #[derive(serde::Deserialize, serde::Serialize)]
 // #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Default)]
-pub struct ToyboxApp {
-    curr_page: AppFrame,
-    config: ToyboxAppConfig,
+pub struct App {
+    page: AppPages,
+    config: AppConfig,
     filter_release_entry: String,
     release_groups: Vec<String>,
     curr_group_idx: usize,
-    release_promise: Option<Promise<ehttp::Result<Vec<utils::FeedsItem>>>>,
+    release_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
 }
 
 #[derive(Default)]
-pub struct ToyboxAppConfig {
-    pub release_feeds: Vec<utils::FeedsItem>,
+pub struct AppConfig {
+    pub release_feeds: Vec<FeedsItem>,
 }
 
 #[derive(Debug, PartialEq, Default)]
-enum AppFrame {
+enum AppPages {
     #[default]
     VentoyUpdate,
     ReleaseBrowse,
 }
 
-impl ToyboxApp {
+impl App {
     /// Called once before the first frame.
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customized the look at feel of egui using
@@ -40,7 +40,8 @@ impl ToyboxApp {
         // }
         // Self::default()
 
-        // let dummy_feeds = (1..=250).map(|x| utils::FeedsItem {
+        // dummy data ---!
+        // let dummy_feeds = (1..=250).map(|x| FeedsItem {
         //     group: format!("?group{}", x),
         //     name: format!("some-xyz-linux-distro-etc{}.iso.torrent", x),
         //     torrent_url: format!(
@@ -57,24 +58,6 @@ impl ToyboxApp {
         // dummy_groups.insert(0, "all".to_owned());
         // let dummy_feeds = Vec::from_iter(dummy_feeds);
 
-        // poor main thread T~T
-        // let feeds = utils::Feeds::new().unwrap();
-        // let mut group_duplicates: Vec<String> = Vec::new();
-        // let mut groups: Vec<String> = feeds
-        //     .clone()
-        //     .into_iter()
-        //     .map(|x| x.group)
-        //     .filter(|x| {
-        //         for t in &group_duplicates {
-        //             if t == x {
-        //                 return false;
-        //             }
-        //         }
-        //         group_duplicates.push(x.clone());
-        //         true
-        //     })
-        //     .collect();
-        // groups.insert(0, "all".to_owned());
         let mut dummy_groups: Vec<String> = Vec::new();
         dummy_groups.push("all".to_owned());
 
@@ -82,15 +65,12 @@ impl ToyboxApp {
             release_groups: dummy_groups,
             curr_group_idx: 0,
             filter_release_entry: String::new(),
-            curr_page: AppFrame::ReleaseBrowse,
-            // config: ToyboxAppConfig {
-            //     release_feeds: dummy_feeds,
-            // },
+            page: AppPages::VentoyUpdate,
             ..Default::default()
         }
     }
 
-    fn render_release_cards(&self, ui: &mut egui::Ui) {
+    fn draw_release_cards(&self, ui: &mut egui::Ui) {
         for item in &self.config.release_feeds {
             const PADDING: f32 = 3.0;
             ui.add_space(PADDING);
@@ -98,15 +78,9 @@ impl ToyboxApp {
                 ui.label(&item.name);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
-                    ui.add(egui::Hyperlink::from_label_and_url(
-                        "Magnet Link ⤴",
-                        &item.magnet,
-                    ));
+                    ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
                     ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
-                    ui.add(egui::Hyperlink::from_label_and_url(
-                        "Torrent ⤴",
-                        &item.torrent_url,
-                    ));
+                    ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
                 });
             });
             ui.add_space(PADDING);
@@ -114,16 +88,12 @@ impl ToyboxApp {
         }
     }
 
-    fn render_header(&mut self, ui: &mut egui::Ui) {
+    fn draw_topbar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.page, AppPages::VentoyUpdate, "🕫  Ventoy Updates");
             ui.selectable_value(
-                &mut self.curr_page,
-                AppFrame::VentoyUpdate,
-                "🕫  Ventoy Updates",
-            );
-            ui.selectable_value(
-                &mut self.curr_page,
-                AppFrame::ReleaseBrowse,
+                &mut self.page,
+                AppPages::ReleaseBrowse,
                 "🔍  Browse OS Releases",
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
@@ -158,7 +128,7 @@ impl ToyboxApp {
     }
 }
 
-impl eframe::App for ToyboxApp {
+impl eframe::App for App {
     /// Called by the frame work to save state before shutdown.
     // fn save(&mut self, storage: &mut dyn eframe::Storage) {
     //     eframe::set_value(storage, eframe::APP_KEY, self);
@@ -185,7 +155,7 @@ impl eframe::App for ToyboxApp {
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
             ehttp::fetch(request, move |response| {
                 let release_feeds  = response.and_then(|response| {
-                    Ok(serde_json::from_str::<Vec<utils::FeedsItem>>(response.text().unwrap()).unwrap())
+                    Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap())
                 });
                 dbg!(&release_feeds);
                 sender.send(release_feeds);
@@ -227,37 +197,56 @@ impl eframe::App for ToyboxApp {
 
         // ----------------------------------------------
 
-        if let AppFrame::ReleaseBrowse = self.curr_page {
-            render_release_footer(ctx);
+        if let AppPages::ReleaseBrowse = self.page {
+            draw_release_footer(ctx);
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.render_header(ui); // mutable borrow here
-            match self.curr_page {
-                AppFrame::VentoyUpdate => {}
-                AppFrame::ReleaseBrowse => {
+            self.draw_topbar(ui); // mutable borrow here
+            match self.page {
+                AppPages::VentoyUpdate => {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space((ui.available_height()) / 2.0 - 36.0);
+                        ui.add(egui::Spinner::new().size(36.));
+                    });
+                }
+                AppPages::ReleaseBrowse => {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            ui.collapsing("Filter", |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label("Filter by name:");
-                                    ui.add(
-                                        egui::TextEdit::singleline(&mut self.filter_release_entry)
+                            let filter_enabled: bool;
+                            match release_feeds_status {
+                                Some(_) => {
+                                    filter_enabled = true;
+                                }
+                                None => {
+                                    filter_enabled = false;
+                                }
+                            }
+                            ui.add_enabled_ui(filter_enabled, |ui| {
+                                ui.collapsing(" 📃 Filter", |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label("By name:");
+                                        ui.add(
+                                            egui::TextEdit::singleline(
+                                                &mut self.filter_release_entry,
+                                            )
                                             .desired_width(120.0),
-                                    );
-                                    self.filter_release_entry =
-                                        self.filter_release_entry.to_lowercase();
-                                    if ui.button("ｘ").clicked() {
-                                        self.filter_release_entry.clear();
-                                    }
+                                        );
+                                        self.filter_release_entry =
+                                            self.filter_release_entry.to_lowercase();
+                                        if ui.button("ｘ").clicked() {
+                                            self.filter_release_entry.clear();
+                                        }
 
-                                    egui::ComboBox::from_id_source("group-combobox").show_index(
-                                        ui,
-                                        &mut self.curr_group_idx,
-                                        self.release_groups.len(),
-                                        |idx| self.release_groups[idx].to_owned(),
-                                    )
-                                })
+                                        egui::ComboBox::from_id_source("group-combobox")
+                                            .show_index(
+                                                ui,
+                                                &mut self.curr_group_idx,
+                                                self.release_groups.len(),
+                                                |idx| self.release_groups[idx].to_owned(),
+                                            );
+                                    });
+                                });
                             });
                         });
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
@@ -270,9 +259,12 @@ impl eframe::App for ToyboxApp {
                     ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| match release_feeds_status {
-                            Some(_) => self.render_release_cards(ui),
+                            Some(_) => self.draw_release_cards(ui),
                             None => {
-                                ui.spinner();
+                                ui.vertical_centered(|ui| {
+                                    ui.add_space(ui.available_height() / 2.0 - 36.0);
+                                    ui.add(egui::Spinner::new().size(36.));
+                                });
                             }
                         });
                 }
@@ -283,71 +275,19 @@ impl eframe::App for ToyboxApp {
         //     ui.label("egui theme:");
         //     egui::widgets::global_dark_light_mode_switch(ui);
         // });
-
-        // ui.horizontal(|ui| {
-        //     ui.label("Write something: ");
-        //     ui.text_edit_singleline(label);
-        // });
-
-        // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-        // if ui.button("Increment").clicked() {
-        //     *value += 1.0;
-        // }
-
-        // // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-        //     ui.horizontal(|ui| {
         //         ui.spacing_mut().item_spacing.x = 0.0;
-        //         ui.label("powered by ");
-        //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        //         ui.label(" and ");
-        //         ui.hyperlink_to(
-        //             "eframe",
-        //             "https://github.com/emilk/egui/tree/master/crates/eframe",
-        //         );
-        //         ui.label(".");
-        //     });
-        // // });
-
-        // // The central panel the region left after adding TopPanel's and SidePanel's
-
-        // ui.heading("eframe template");
-        // // ui.hyperlink("https://github.com/emilk/eframe_template");
-        // ui.add(egui::github_link_file!(
-        //     "https://github.com/nozwock/ventoy-toybox",
-        //     "nozwock/ventoy-toybox"
-        // ));
-        // });
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-        //     // The top panel is often a good place for a menu bar:
-        //     egui::menu::bar(ui, |ui| {
-        //         ui.menu_button("File", |ui| {
-        //             if ui.button("Quit").clicked() {
-        //                 _frame.close();
-        //             }
-        //         });
-        //     });
-        // });
-
-        // egui::SidePanel::left("side_panel").show(ctx, |ui| {
-        // });
     }
 }
 
-fn render_release_footer(ctx: &egui::Context) {
+fn draw_release_footer(ctx: &egui::Context) {
     egui::TopBottomPanel::bottom("release-footer").show(ctx, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(10.);
             ui.label(RichText::new("Source: distrowatch.com").monospace());
-            ui.add(egui::Hyperlink::from_label_and_url(
+            ui.hyperlink_to(
                 "nozwock/ventoy-toybox",
                 "https://github.com/nozwock/ventoy-toybox",
-            ));
+            );
             ui.add_space(10.);
         })
     });

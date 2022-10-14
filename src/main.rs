@@ -17,6 +17,6 @@ fn main() {
     eframe::run_native(
         "Ventoy Toybox",
         options,
-        Box::new(|cc| Box::new(app::ToyboxApp::new(cc))),
+        Box::new(|cc| Box::new(app::App::new(cc))),
     );
 }
