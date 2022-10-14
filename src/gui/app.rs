@@ -7,12 +7,12 @@ use poll_promise::Promise;
 // #[serde(default)] // if we add new fields, give them default values when deserializing old state
 #[derive(Default)]
 pub struct ToyboxApp {
-    curr_frame: AppFrame,
+    curr_page: AppFrame,
     config: ToyboxAppConfig,
-    filter_release: String,
+    filter_release_entry: String,
     release_groups: Vec<String>,
-    release_curr_group_idx: usize,
-    // release_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>, 
+    curr_group_idx: usize,
+    release_promise: Option<Promise<ehttp::Result<Vec<utils::FeedsItem>>>>,
 }
 
 #[derive(Default)]
@@ -58,32 +58,34 @@ impl ToyboxApp {
         // let dummy_feeds = Vec::from_iter(dummy_feeds);
 
         // poor main thread T~T
-        let feeds = utils::Feeds::new().unwrap();
-        let mut group_duplicates: Vec<String> = Vec::new();
-        let mut groups: Vec<String> = feeds
-            .clone()
-            .into_iter()
-            .map(|x| x.group)
-            .filter(|x| {
-                for t in &group_duplicates {
-                    if t == x {
-                        return false;
-                    }
-                }
-                group_duplicates.push(x.clone());
-                true
-            })
-            .collect();
-        groups.insert(0, "all".to_owned());
+        // let feeds = utils::Feeds::new().unwrap();
+        // let mut group_duplicates: Vec<String> = Vec::new();
+        // let mut groups: Vec<String> = feeds
+        //     .clone()
+        //     .into_iter()
+        //     .map(|x| x.group)
+        //     .filter(|x| {
+        //         for t in &group_duplicates {
+        //             if t == x {
+        //                 return false;
+        //             }
+        //         }
+        //         group_duplicates.push(x.clone());
+        //         true
+        //     })
+        //     .collect();
+        // groups.insert(0, "all".to_owned());
+        let mut dummy_groups: Vec<String> = Vec::new();
+        dummy_groups.push("all".to_owned());
 
         Self {
-            release_groups: groups,
-            release_curr_group_idx: 0,
-            filter_release: String::new(),
-            curr_frame: AppFrame::ReleaseBrowse,
-            config: ToyboxAppConfig {
-                release_feeds: feeds,
-            },
+            release_groups: dummy_groups,
+            curr_group_idx: 0,
+            filter_release_entry: String::new(),
+            curr_page: AppFrame::ReleaseBrowse,
+            // config: ToyboxAppConfig {
+            //     release_feeds: dummy_feeds,
+            // },
             ..Default::default()
         }
     }
@@ -115,12 +117,12 @@ impl ToyboxApp {
     fn render_header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.selectable_value(
-                &mut self.curr_frame,
+                &mut self.curr_page,
                 AppFrame::VentoyUpdate,
                 "🕫  Ventoy Updates",
             );
             ui.selectable_value(
-                &mut self.curr_frame,
+                &mut self.curr_page,
                 AppFrame::ReleaseBrowse,
                 "🔍  Browse OS Releases",
             );
@@ -176,26 +178,56 @@ impl eframe::App for ToyboxApp {
 
         self.configure_fonts(ctx);
 
-        // i hate the way this is being done... T~T
-        // let release_promise = self.release_promise.get_or_insert_with(|| { // mutable borrow here aswell
-        //     let ctx = ctx.clone();
-        //     let (sender, promise) = Promise::new();
-        //     // let response = utils::Feeds::new();
-        //     let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
-        //     ehttp::fetch(request, move |response| {
-        //         let release_feeds  = response.and_then(|response| {
-        //             let r: Vec<FeedsItem> = serde_json::from_str(response.text().unwrap()).unwrap();
-        //             Ok(r)
-        //         });
-        //         sender.send(release_feeds);
-        //         ctx.request_repaint();
-        //     }) ;
-        //     promise
-        // });
+        // i hate the way this is being done...but ok T~T
+        let release_promise = self.release_promise.get_or_insert_with(|| { // mutable borrow here aswell
+            let ctx = ctx.clone();
+            let (sender, promise) = Promise::new();
+            let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
+            ehttp::fetch(request, move |response| {
+                let release_feeds  = response.and_then(|response| {
+                    Ok(serde_json::from_str::<Vec<utils::FeedsItem>>(response.text().unwrap()).unwrap())
+                });
+                dbg!(&release_feeds);
+                sender.send(release_feeds);
+                ctx.request_repaint();
+            }) ;
+            promise
+        });
+
+        // had to do this at the start...bcz i can't figure out how to solve that multiple borrow issue atm :-<
+        let release_feeds_status = match release_promise.ready() {
+            None => None,
+            Some(Err(_)) => None,
+            Some(Ok(feeds)) => {
+                if self.config.release_feeds.len() == 0 {
+                    self.config.release_feeds = feeds.clone();
+                    let mut group_duplicates: Vec<String> = Vec::new();
+                    let mut groups: Vec<String> = self
+                        .config
+                        .release_feeds
+                        .clone()
+                        .into_iter()
+                        .map(|x| x.group)
+                        .filter(|x| {
+                            for t in &group_duplicates {
+                                if t == x {
+                                    return false;
+                                }
+                            }
+                            group_duplicates.push(x.to_owned());
+                            true
+                        })
+                        .collect();
+                    groups.insert(0, "all".to_owned());
+                    self.release_groups = groups;
+                }
+                Some(())
+            }
+        };
 
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_header(ui); // mutable borrow here
-            match self.curr_frame {
+            match self.curr_page {
                 AppFrame::VentoyUpdate => {}
                 AppFrame::ReleaseBrowse => {
                     ui.horizontal(|ui| {
@@ -204,17 +236,18 @@ impl eframe::App for ToyboxApp {
                                 ui.horizontal(|ui| {
                                     ui.label("Filter by name:");
                                     ui.add(
-                                        egui::TextEdit::singleline(&mut self.filter_release)
+                                        egui::TextEdit::singleline(&mut self.filter_release_entry)
                                             .desired_width(120.0),
                                     );
-                                    self.filter_release = self.filter_release.to_lowercase();
+                                    self.filter_release_entry =
+                                        self.filter_release_entry.to_lowercase();
                                     if ui.button("ｘ").clicked() {
-                                        self.filter_release.clear();
+                                        self.filter_release_entry.clear();
                                     }
 
                                     egui::ComboBox::from_id_source("group-combobox").show_index(
                                         ui,
-                                        &mut self.release_curr_group_idx,
+                                        &mut self.curr_group_idx,
                                         self.release_groups.len(),
                                         |idx| self.release_groups[idx].to_owned(),
                                     )
@@ -230,7 +263,12 @@ impl eframe::App for ToyboxApp {
 
                     ScrollArea::vertical()
                         .auto_shrink([false; 2])
-                        .show(ui, |ui| self.render_release_cards(ui));
+                        .show(ui, |ui| match release_feeds_status {
+                            Some(_) => self.render_release_cards(ui),
+                            None => {
+                                ui.spinner();
+                            }
+                        });
                 }
             }
         });
