@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use {std::fs, std::io::copy, std::path::PathBuf};
+use std::{fs, io, path::PathBuf};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Release {
@@ -21,18 +21,14 @@ pub struct UpdateState {
     pub status: UpdateStatus,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub enum UpdateStatus {
-    Updating,
+    #[default]
     Checking,
-    Done,
+    CheckingDone,
+    Downloading,
     Failed,
-}
-
-impl Default for UpdateStatus {
-    fn default() -> Self {
-        UpdateStatus::Checking
-    }
+    Done,
 }
 
 /// Download a file from the internet
@@ -44,7 +40,7 @@ pub async fn download_file<T: ToString>(url: T, dest_file: PathBuf) -> Result<()
         Ok(resp) => {
             let mut file = fs::File::create(&dest_file).unwrap();
 
-            if let Err(e) = copy(&mut resp.into_reader(), &mut file) {
+            if let Err(e) = io::copy(&mut resp.into_reader(), &mut file) {
                 return Err(anyhow!("write failed!\n{}", e));
             }
         }

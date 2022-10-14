@@ -1,3 +1,4 @@
+use crate::core::update;
 use crate::core::utils::FeedsItem;
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
@@ -11,8 +12,9 @@ pub struct App {
     config: AppConfig,
     filter_release_entry: String,
     release_groups: Vec<String>,
-    curr_group_idx: usize,
-    release_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
+    group_by_idx: usize,
+    release_feeds_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
+    ventoy_update_check_promise: Option<Promise<ehttp::Result<update::Release>>>,
 }
 
 #[derive(Default)]
@@ -63,7 +65,7 @@ impl App {
 
         Self {
             release_groups: dummy_groups,
-            curr_group_idx: 0,
+            group_by_idx: 0,
             filter_release_entry: String::new(),
             page: AppPages::VentoyUpdate,
             ..Default::default()
@@ -148,8 +150,9 @@ impl eframe::App for App {
 
         self.configure_fonts(ctx);
 
+        // buncha promises ahead~
         // i hate the way this is being done...but ok T~T
-        let release_promise = self.release_promise.get_or_insert_with(|| { // mutable borrow here aswell
+        let release_feeds_promise = self.release_feeds_promise.get_or_insert_with(|| { // mutable borrow here aswell
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
@@ -157,15 +160,36 @@ impl eframe::App for App {
                 let release_feeds  = response.and_then(|response| {
                     Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap())
                 });
-                dbg!(&release_feeds);
+                // dbg!(&release_feeds);
                 sender.send(release_feeds);
                 ctx.request_repaint();
             }) ;
             promise
         });
 
+        let ventoy_update_check_promise =
+            self.ventoy_update_check_promise.get_or_insert_with(|| {
+                let ctx = ctx.clone();
+                let (sender, promise) = Promise::new();
+                let request = ehttp::Request::get(
+                    "https://api.github.com/repos/ventoy/Ventoy/releases/latest",
+                );
+                ehttp::fetch(request, move |response| {
+                    let ventoy_release = response.and_then(|response| {
+                        Ok(
+                            serde_json::from_str::<update::Release>(response.text().unwrap())
+                                .unwrap(),
+                        )
+                    });
+                    dbg!(&ventoy_release);
+                    sender.send(ventoy_release);
+                    ctx.request_repaint();
+                });
+                promise
+            });
+
         // had to do this at the start...bcz i can't figure out how to solve that multiple borrow issue atm :-<
-        let release_feeds_status = match release_promise.ready() {
+        let release_feeds_status = match release_feeds_promise.ready() {
             None => None,
             Some(Err(_)) => None,
             Some(Ok(feeds)) => {
@@ -195,6 +219,15 @@ impl eframe::App for App {
             }
         };
 
+        let ventoy_update_release: Option<update::Release> =
+            match ventoy_update_check_promise.ready() {
+                None => None,
+                Some(Err(_)) => None,
+                Some(Ok(release)) => Some(release.clone()),
+            };
+
+        // ----------------------------------------------
+        // actual ui part from here...ya i know this is a mess...
         // ----------------------------------------------
 
         if let AppPages::ReleaseBrowse = self.page {
@@ -204,12 +237,56 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.draw_topbar(ui); // mutable borrow here
             match self.page {
-                AppPages::VentoyUpdate => {
-                    ui.vertical_centered(|ui| {
-                        ui.add_space((ui.available_height()) / 2.0 - 36.0);
-                        ui.add(egui::Spinner::new().size(36.));
-                    });
-                }
+                AppPages::VentoyUpdate => match ventoy_update_release {
+                    None => {
+                        ui.vertical_centered_justified(|ui| {
+                            ui.add_space((ui.available_height()) / 2.0 - 54.0);
+                            ui.label(
+                                egui::RichText::new("Checking for ventoy updates...")
+                                    .color(egui::Color32::from_rgb(255, 255, 255))
+                                    .size(26.0),
+                            );
+                            ui.add_space(8.0);
+                            ui.add(egui::Spinner::new().size(32.));
+                        });
+                    }
+                    Some(release) => {
+                        let mut release_msg = egui::text::LayoutJob::default();
+                        release_msg.append(
+                            "Found latest release ",
+                            0.,
+                            egui::TextFormat {
+                                font_id: eframe::epaint::FontId {
+                                    size: 22.,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                        );
+                        release_msg.append(
+                            release.tag_name.as_str(),
+                            0.,
+                            egui::TextFormat {
+                                font_id: eframe::epaint::FontId {
+                                    size: 26.,
+                                    ..Default::default()
+                                },
+                                color: egui::Color32::from_rgb(255, 255, 15),
+                                ..Default::default()
+                            },
+                        );
+
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(ui.available_height() / 2. - 50.);
+                            ui.label(release_msg);
+                            ui.add_space(8.);
+                            if ui
+                                .button(egui::RichText::new("⮋ Download").size(32.))
+                                .clicked()
+                            {}
+                        });
+                    }
+                },
                 AppPages::ReleaseBrowse => {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
@@ -241,7 +318,7 @@ impl eframe::App for App {
                                         egui::ComboBox::from_id_source("group-combobox")
                                             .show_index(
                                                 ui,
-                                                &mut self.curr_group_idx,
+                                                &mut self.group_by_idx,
                                                 self.release_groups.len(),
                                                 |idx| self.release_groups[idx].to_owned(),
                                             );
