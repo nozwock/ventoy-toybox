@@ -1,6 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use serde::Deserialize;
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs,
+    io::{self, Write},
+    path::PathBuf,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Release {
@@ -15,30 +19,14 @@ pub struct ReleaseAsset {
     pub download_url: String,
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct UpdateState {
-    pub latest_release: Option<Release>,
-    pub status: UpdateStatus,
-}
-
-#[derive(Default, Debug, PartialEq, Eq, Clone)]
-pub enum UpdateStatus {
-    #[default]
-    Checking,
-    CheckingDone,
-    Downloading,
-    Failed,
-    Done,
-}
-
 /// Download a file from the internet
-pub async fn download_file<T: ToString>(url: T, dest_file: PathBuf) -> Result<()> {
+pub async fn download_file<T: ToString>(url: T, dest_file: &PathBuf) -> anyhow::Result<()> {
     let url = url.to_string();
     dbg!("downloading file from {}", &url);
 
     match ureq::get(&url).call() {
         Ok(resp) => {
-            let mut file = fs::File::create(&dest_file).unwrap();
+            let mut file = fs::File::create(dest_file).unwrap();
 
             if let Err(e) = io::copy(&mut resp.into_reader(), &mut file) {
                 return Err(anyhow!("write failed!\n{}", e));
@@ -47,4 +35,28 @@ pub async fn download_file<T: ToString>(url: T, dest_file: PathBuf) -> Result<()
         Err(e) => return Err(anyhow!("req failed!\n{}", e)),
     }
     Ok(())
+}
+
+pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<(), String> {
+    if resp.ok {
+        let mut file = fs::File::create(dest_file).unwrap(); // thread will panic if not file
+        dbg!(&file);
+
+        match file.write_all(&resp.bytes) {
+            Ok(_) => return Ok(()),
+            Err(_) => return Err("failed to write file".to_string()),
+        };
+    }
+    Err("invalid response".to_string())
+}
+
+pub const fn ventoy_bin_name() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "Ventoy2Disk.exe"
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        "VentoyGUI.x86_64"
+    }
 }

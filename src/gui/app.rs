@@ -1,3 +1,5 @@
+use std::{collections::HashMap, fmt::format, path::PathBuf};
+
 use crate::core::update;
 use crate::core::utils::FeedsItem;
 use eframe::egui::{self, RichText, ScrollArea};
@@ -13,8 +15,10 @@ pub struct App {
     filter_release_entry: String,
     release_groups: Vec<String>,
     group_by_idx: usize,
+    ventoy_update_frame: VentoyUpdateFrames,
     release_feeds_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
     ventoy_update_check_promise: Option<Promise<ehttp::Result<update::Release>>>,
+    ventoy_update_pkg_promise: Option<Promise<ehttp::Result<()>>>,
 }
 
 #[derive(Default)]
@@ -27,6 +31,15 @@ enum AppPages {
     #[default]
     VentoyUpdate,
     ReleaseBrowse,
+}
+
+#[derive(Default, PartialEq, Debug)]
+enum VentoyUpdateFrames {
+    #[default]
+    FoundRelease,
+    Downloading,
+    Done,
+    Failed,
 }
 
 impl App {
@@ -92,11 +105,11 @@ impl App {
 
     fn draw_topbar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.page, AppPages::VentoyUpdate, "🕫  Ventoy Updates");
+            ui.selectable_value(&mut self.page, AppPages::VentoyUpdate, "🕫 Ventoy Updates");
             ui.selectable_value(
                 &mut self.page,
                 AppPages::ReleaseBrowse,
-                "🔍  Browse OS Releases",
+                "🔍 Browse OS Releases",
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 egui::warn_if_debug_build(ui);
@@ -251,40 +264,135 @@ impl eframe::App for App {
                         });
                     }
                     Some(release) => {
-                        let mut release_msg = egui::text::LayoutJob::default();
-                        release_msg.append(
-                            "Found latest release ",
-                            0.,
-                            egui::TextFormat {
-                                font_id: eframe::epaint::FontId {
-                                    size: 22.,
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            },
-                        );
-                        release_msg.append(
-                            release.tag_name.as_str(),
-                            0.,
-                            egui::TextFormat {
-                                font_id: eframe::epaint::FontId {
-                                    size: 26.,
-                                    ..Default::default()
-                                },
-                                color: egui::Color32::from_rgb(255, 255, 15),
-                                ..Default::default()
-                            },
-                        );
+                        match self.ventoy_update_frame {
+                            VentoyUpdateFrames::FoundRelease => {
+                                let mut release_msg = egui::text::LayoutJob::default();
+                                release_msg.append(
+                                    "Found latest release ",
+                                    0.,
+                                    egui::TextFormat {
+                                        font_id: eframe::epaint::FontId {
+                                            size: 22.,
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    },
+                                );
+                                release_msg.append(
+                                    release.tag_name.as_str(),
+                                    0.,
+                                    egui::TextFormat {
+                                        font_id: eframe::epaint::FontId {
+                                            size: 26.,
+                                            ..Default::default()
+                                        },
+                                        color: egui::Color32::from_rgb(255, 255, 15),
+                                        ..Default::default()
+                                    },
+                                );
 
-                        ui.vertical_centered(|ui| {
-                            ui.add_space(ui.available_height() / 2. - 50.);
-                            ui.label(release_msg);
-                            ui.add_space(8.);
-                            if ui
-                                .button(egui::RichText::new("⮋ Download").size(32.))
-                                .clicked()
-                            {}
-                        });
+                                ui.vertical_centered(|ui| {
+                                    ui.add_space(ui.available_height() / 2. - 50.);
+                                    ui.label(release_msg);
+                                    ui.add_space(8.);
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                egui::RichText::new("⮋ Download").size(32.),
+                                            ), // .fill(egui::Color32::from_rgb(0, 92, 128)),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.ventoy_update_frame = VentoyUpdateFrames::Downloading;
+                                    }
+                                });
+                            }
+                            VentoyUpdateFrames::Downloading => {
+                                let ventoy_release_pkg_promise =
+                                    self.ventoy_update_pkg_promise.get_or_insert_with(|| {
+                                        let ctx = ctx.clone();
+                                        let (sender, promise) = Promise::new();
+                                        let native_os: &str;
+                                        let mut pkg_idx: Option<usize> = None;
+                                        #[cfg(target_os = "windows")]
+                                        {
+                                            pkg_native = "windows";
+                                        }
+                                        #[cfg(not(target_os = "windows"))]
+                                        {
+                                            native_os = "linux";
+                                        }
+                                        for (idx, asset) in release.assets.iter().enumerate() {
+                                            if asset.name.to_lowercase().contains(native_os) {
+                                                pkg_idx = Some(idx);
+                                                break;
+                                            }
+                                        }
+                                        match pkg_idx {
+                                            Some(idx) => {
+                                                let request = ehttp::Request::get(
+                                                    release
+                                                        .assets
+                                                        .get(idx)
+                                                        .unwrap()
+                                                        .download_url
+                                                        .to_owned(),
+                                                ); // test for linux pkg
+                                                ehttp::fetch(request, move |response| {
+                                                    let pkg_status =
+                                                        response.and_then(|response| {
+                                                            update::write_resp_to_file(
+                                                                response,
+                                                                &PathBuf::from(format!(
+                                                                    "./{}",
+                                                                    release
+                                                                        .assets
+                                                                        .get(idx)
+                                                                        .unwrap()
+                                                                        .name
+                                                                )),
+                                                            )
+                                                        });
+                                                    dbg!(&pkg_status);
+                                                    sender.send(pkg_status);
+                                                    ctx.request_repaint();
+                                                });
+                                            }
+                                            None => {
+                                                sender.send(Err(
+                                                    "failed to find correct pkg for native os"
+                                                        .to_string(),
+                                                ));
+                                                ctx.request_repaint();
+                                            }
+                                        }
+                                        promise
+                                    });
+
+                                ui.vertical_centered(|ui| {
+                                    ui.add_space(ui.available_height() / 2. - 46.);
+                                    ui.heading("Downloading...");
+                                    ui.add_space(8.);
+                                    ui.add(egui::Spinner::new().size(32.));
+                                });
+
+                                match ventoy_release_pkg_promise.ready() {
+                                    None => (),
+                                    Some(Err(_)) => {
+                                        self.ventoy_update_frame = VentoyUpdateFrames::Failed;
+                                    }
+                                    Some(Ok(_)) => {
+                                        self.ventoy_update_frame = VentoyUpdateFrames::Done;
+                                    }
+                                }
+                            }
+                            VentoyUpdateFrames::Done => {
+                                ui.label("done");
+                            }
+                            VentoyUpdateFrames::Failed => {
+                                ui.label("failed");
+                            }
+                        }
                     }
                 },
                 AppPages::ReleaseBrowse => {
