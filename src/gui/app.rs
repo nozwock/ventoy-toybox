@@ -21,6 +21,7 @@ pub struct App {
     ventoy_update_pkg_promise: Option<Promise<ehttp::Result<PathBuf>>>,
     ventoy_update_pkg_result: Option<ehttp::Result<PathBuf>>,
     ventoy_update_pkg_name: Option<String>,
+    ventoy_bin_path: Option<Result<PathBuf, String>>,
 }
 
 #[derive(Default)]
@@ -326,7 +327,7 @@ impl eframe::App for App {
                                         let mut pkg_idx: Option<usize> = None;
                                         #[cfg(target_os = "windows")]
                                         {
-                                            pkg_native = "windows";
+                                            native_os = "windows";
                                         }
                                         #[cfg(not(target_os = "windows"))]
                                         {
@@ -355,19 +356,43 @@ impl eframe::App for App {
                                                         .unwrap()
                                                         .download_url
                                                         .to_owned(),
-                                                ); // test for linux pkg
-                                                let mut pkg_path = PathBuf::from(format!(
-                                                    "./ventoy_tobox-ventoy-{}",
-                                                    release.tag_name.to_string()
-                                                ));
-                                                fs::create_dir_all(&pkg_path).unwrap();
+                                                );
+                                                // TODO: have pwd be the bin path
+                                                let mut pkg_path =
+                                                    PathBuf::from("./ventoy_toybox-cache");
                                                 pkg_path.push(format!("{}", pkg_name));
+                                                let mut ventoy_bin_dir =
+                                                    PathBuf::from(pkg_path.parent().unwrap());
+                                                ventoy_bin_dir.push(format!(
+                                                    "ventoy-{}-{}",
+                                                    release.tag_name.to_string(),
+                                                    native_os
+                                                ));
+                                                fs::create_dir_all(&ventoy_bin_dir).unwrap();
                                                 ehttp::fetch(request, move |response| {
                                                     let pkg_status =
                                                         response.and_then(|response| {
-                                                            update::write_resp_to_file(
-                                                                response, pkg_path,
-                                                            )
+                                                            let result = update::write_resp_to_file(
+                                                                response, &pkg_path,
+                                                            );
+                                                            #[cfg(target_os = "windows")]
+                                                            {
+                                                                update::extract_zip(
+                                                                    &pkg_path,
+                                                                    &ventoy_bin_dir,
+                                                                )
+                                                            }
+                                                            #[cfg(not(target_os = "windows"))]
+                                                            {
+                                                                update::extract_targz(
+                                                                    &pkg_path,
+                                                                    &ventoy_bin_dir,
+                                                                );
+                                                            }
+                                                            match result {
+                                                                Ok(_) => Ok(ventoy_bin_dir),
+                                                                Err(err) => Err(err),
+                                                            }
                                                         });
                                                     dbg!(&pkg_status);
                                                     sender.send(pkg_status);
@@ -398,8 +423,8 @@ impl eframe::App for App {
                                         self.ventoy_update_pkg_result = Some(Err(err.to_string()));
                                         self.ventoy_update_frame = VentoyUpdateFrames::Failed;
                                     }
-                                    Some(Ok(pkg)) => {
-                                        self.ventoy_update_pkg_result = Some(Ok(pkg.clone()));
+                                    Some(Ok(dir)) => {
+                                        self.ventoy_update_pkg_result = Some(Ok(dir.clone()));
                                         self.ventoy_update_frame = VentoyUpdateFrames::Done;
                                     }
                                 }
