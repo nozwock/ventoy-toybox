@@ -165,6 +165,7 @@ impl eframe::App for App {
         // } = self;
 
         self.configure_fonts(ctx);
+        // *ctx.memory() = Default::default();
 
         // buncha promises ahead~
         // i hate the way this is being done...but ok T~T
@@ -263,7 +264,7 @@ impl eframe::App for App {
                         ui.vertical_centered_justified(|ui| {
                             ui.add_space((ui.available_height()) / 2.0 - 54.0);
                             ui.label(
-                                egui::RichText::new("Checking for ventoy updates...")
+                                RichText::new("Checking for ventoy updates...")
                                     .color(egui::Color32::WHITE)
                                     .size(26.0),
                             );
@@ -306,13 +307,7 @@ impl eframe::App for App {
                                     ui.add_space(ui.available_height() / 2. - 50.);
                                     ui.label(release_msg);
                                     ui.add_space(8.);
-                                    if ui
-                                        .add(
-                                            egui::Button::new(
-                                                egui::RichText::new("⮋ Download").size(32.),
-                                            ), // .fill(egui::Color32::from_rgb(0, 92, 128)),
-                                        )
-                                        .clicked()
+                                    if ui.button(RichText::new("⮋ Download").size(32.)).clicked()
                                     {
                                         self.ventoy_update_frame = VentoyUpdateFrames::Downloading;
                                     }
@@ -431,6 +426,17 @@ impl eframe::App for App {
                             }
                             VentoyUpdateFrames::Done => {
                                 ui.label("done");
+                                if self.ventoy_bin_path.is_none() {
+                                    self.ventoy_bin_path = dbg!(Some(update::find_file(
+                                        self.ventoy_update_pkg_result
+                                            .as_ref()
+                                            .unwrap()
+                                            .as_ref()
+                                            .unwrap()
+                                            .as_path(),
+                                        update::ventoy_bin_name(),
+                                    )));
+                                }
                             }
                             VentoyUpdateFrames::Failed => {
                                 ui.label(
