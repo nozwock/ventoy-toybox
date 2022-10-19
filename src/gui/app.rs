@@ -173,12 +173,15 @@ impl eframe::App for App {
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
             ehttp::fetch(request, move |response| {
                 let release_feeds  = response.and_then(|response| {
-                    if response.ok { 
+                    dbg!(&response);
+                    if response.ok {
                         return Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap());
                     }
                     Err(format!("{} {}: Failed to fetch release feeds!\n{}",response.status, response.status_text, response.url))
                 });
-                dbg!(&release_feeds);
+                if release_feeds.is_err() {
+                    dbg!(&release_feeds);
+                }
                 sender.send(release_feeds);
                 ctx.request_repaint();
             }) ;
@@ -237,12 +240,11 @@ impl eframe::App for App {
             }
         };
 
-        let ventoy_update_release: Option<update::Release> =
-            match ventoy_update_check_promise.ready() {
-                None => None,
-                Some(Err(_)) => None,
-                Some(Ok(release)) => Some(release.clone()),
-            };
+        let ventoy_update_release = match ventoy_update_check_promise.ready() {
+            None => None,
+            Some(Err(err)) => Some(Err(err.clone())),
+            Some(Ok(release)) => Some(Ok(release.clone())),
+        };
 
         // ----------------------------------------------
         // actual ui part from here...ya i know this is a mess...
@@ -268,7 +270,10 @@ impl eframe::App for App {
                             ui.add(egui::Spinner::new().size(32.));
                         });
                     }
-                    Some(release) => {
+                    Some(Err(err)) => {
+                        ui.label(RichText::new(err).color(egui::Color32::LIGHT_RED));
+                    }
+                    Some(Ok(release)) => {
                         match self.ventoy_update_frame {
                             VentoyUpdateFrames::FoundRelease => {
                                 let mut release_msg = egui::text::LayoutJob::default();
@@ -361,8 +366,7 @@ impl eframe::App for App {
                                                     let pkg_status =
                                                         response.and_then(|response| {
                                                             update::write_resp_to_file(
-                                                                response,
-                                                                pkg_path,
+                                                                response, pkg_path,
                                                             )
                                                         });
                                                     dbg!(&pkg_status);
@@ -423,8 +427,11 @@ impl eframe::App for App {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                             let filter_enabled: bool;
                             match release_feeds_status {
-                                Some(_) => {
+                                Some(Ok(_)) => {
                                     filter_enabled = true;
+                                }
+                                Some(Err(_)) => {
+                                    filter_enabled = false;
                                 }
                                 None => {
                                     filter_enabled = false;
