@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format, path::PathBuf};
+use std::{collections::HashMap, fmt::format, fs, path::PathBuf};
 
 use crate::core::update;
 use crate::core::utils::FeedsItem;
@@ -13,12 +13,14 @@ pub struct App {
     page: AppPages,
     config: AppConfig,
     filter_release_entry: String,
-    release_groups: Vec<String>,
-    group_by_idx: usize,
+    filter_group_by_idx: usize,
+    filter_release_groups: Vec<String>,
     ventoy_update_frame: VentoyUpdateFrames,
     release_feeds_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
     ventoy_update_check_promise: Option<Promise<ehttp::Result<update::Release>>>,
-    ventoy_update_pkg_promise: Option<Promise<ehttp::Result<()>>>,
+    ventoy_update_pkg_promise: Option<Promise<ehttp::Result<PathBuf>>>,
+    ventoy_update_pkg_result: Option<ehttp::Result<PathBuf>>,
+    ventoy_update_pkg_name: Option<String>,
 }
 
 #[derive(Default)]
@@ -77,8 +79,8 @@ impl App {
         dummy_groups.push("all".to_owned());
 
         Self {
-            release_groups: dummy_groups,
-            group_by_idx: 0,
+            filter_release_groups: dummy_groups,
+            filter_group_by_idx: 0,
             filter_release_entry: String::new(),
             page: AppPages::VentoyUpdate,
             ..Default::default()
@@ -171,9 +173,12 @@ impl eframe::App for App {
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
             ehttp::fetch(request, move |response| {
                 let release_feeds  = response.and_then(|response| {
-                    Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap())
+                    if response.ok { 
+                        return Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap());
+                    }
+                    Err(format!("{} {}: Failed to fetch release feeds!\n{}",response.status, response.status_text, response.url))
                 });
-                // dbg!(&release_feeds);
+                dbg!(&release_feeds);
                 sender.send(release_feeds);
                 ctx.request_repaint();
             }) ;
@@ -204,7 +209,7 @@ impl eframe::App for App {
         // had to do this at the start...bcz i can't figure out how to solve that multiple borrow issue atm :-<
         let release_feeds_status = match release_feeds_promise.ready() {
             None => None,
-            Some(Err(_)) => None,
+            Some(Err(err)) => Some(Err(err.clone())),
             Some(Ok(feeds)) => {
                 if self.config.release_feeds.len() == 0 {
                     self.config.release_feeds = feeds.clone();
@@ -226,9 +231,9 @@ impl eframe::App for App {
                         })
                         .collect();
                     groups.insert(0, "all".to_owned());
-                    self.release_groups = groups;
+                    self.filter_release_groups = groups;
                 }
-                Some(())
+                Some(Ok(()))
             }
         };
 
@@ -256,7 +261,7 @@ impl eframe::App for App {
                             ui.add_space((ui.available_height()) / 2.0 - 54.0);
                             ui.label(
                                 egui::RichText::new("Checking for ventoy updates...")
-                                    .color(egui::Color32::from_rgb(255, 255, 255))
+                                    .color(egui::Color32::WHITE)
                                     .size(26.0),
                             );
                             ui.add_space(8.0);
@@ -330,6 +335,14 @@ impl eframe::App for App {
                                         }
                                         match pkg_idx {
                                             Some(idx) => {
+                                                let pkg_name = release
+                                                    .assets
+                                                    .get(idx)
+                                                    .unwrap()
+                                                    .name
+                                                    .to_string();
+                                                self.ventoy_update_pkg_name =
+                                                    Some(pkg_name.to_owned());
                                                 let request = ehttp::Request::get(
                                                     release
                                                         .assets
@@ -338,19 +351,18 @@ impl eframe::App for App {
                                                         .download_url
                                                         .to_owned(),
                                                 ); // test for linux pkg
+                                                let mut pkg_path = PathBuf::from(format!(
+                                                    "./ventoy_tobox-ventoy-{}",
+                                                    release.tag_name.to_string()
+                                                ));
+                                                fs::create_dir_all(&pkg_path).unwrap();
+                                                pkg_path.push(format!("{}", pkg_name));
                                                 ehttp::fetch(request, move |response| {
                                                     let pkg_status =
                                                         response.and_then(|response| {
                                                             update::write_resp_to_file(
                                                                 response,
-                                                                &PathBuf::from(format!(
-                                                                    "./{}",
-                                                                    release
-                                                                        .assets
-                                                                        .get(idx)
-                                                                        .unwrap()
-                                                                        .name
-                                                                )),
+                                                                pkg_path,
                                                             )
                                                         });
                                                     dbg!(&pkg_status);
@@ -378,10 +390,12 @@ impl eframe::App for App {
 
                                 match ventoy_release_pkg_promise.ready() {
                                     None => (),
-                                    Some(Err(_)) => {
+                                    Some(Err(err)) => {
+                                        self.ventoy_update_pkg_result = Some(Err(err.to_string()));
                                         self.ventoy_update_frame = VentoyUpdateFrames::Failed;
                                     }
-                                    Some(Ok(_)) => {
+                                    Some(Ok(pkg)) => {
+                                        self.ventoy_update_pkg_result = Some(Ok(pkg.clone()));
                                         self.ventoy_update_frame = VentoyUpdateFrames::Done;
                                     }
                                 }
@@ -390,7 +404,16 @@ impl eframe::App for App {
                                 ui.label("done");
                             }
                             VentoyUpdateFrames::Failed => {
-                                ui.label("failed");
+                                ui.label(
+                                    RichText::new(
+                                        self.ventoy_update_pkg_result
+                                            .as_ref()
+                                            .unwrap()
+                                            .as_ref()
+                                            .unwrap_err(),
+                                    )
+                                    .color(egui::Color32::LIGHT_RED),
+                                );
                             }
                         }
                     }
@@ -408,6 +431,7 @@ impl eframe::App for App {
                                 }
                             }
                             ui.add_enabled_ui(filter_enabled, |ui| {
+                                // TODO: impl filters feat
                                 ui.collapsing(" 📃 Filter", |ui| {
                                     ui.horizontal(|ui| {
                                         ui.label("By name:");
@@ -426,9 +450,9 @@ impl eframe::App for App {
                                         egui::ComboBox::from_id_source("group-combobox")
                                             .show_index(
                                                 ui,
-                                                &mut self.group_by_idx,
-                                                self.release_groups.len(),
-                                                |idx| self.release_groups[idx].to_owned(),
+                                                &mut self.filter_group_by_idx,
+                                                self.filter_release_groups.len(),
+                                                |idx| self.filter_release_groups[idx].to_owned(),
                                             );
                                     });
                                 });
@@ -444,7 +468,10 @@ impl eframe::App for App {
                     ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| match release_feeds_status {
-                            Some(_) => self.draw_release_cards(ui),
+                            Some(Ok(_)) => self.draw_release_cards(ui),
+                            Some(Err(err)) => {
+                                ui.label(RichText::new(err).color(egui::Color32::LIGHT_RED));
+                            }
                             None => {
                                 ui.vertical_centered(|ui| {
                                     ui.add_space(ui.available_height() / 2.0 - 36.0);

@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::{
     fs,
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -37,17 +37,17 @@ pub async fn download_file<T: ToString>(url: T, dest_file: &PathBuf) -> anyhow::
     Ok(())
 }
 
-pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<(), String> {
+pub fn write_resp_to_file(resp: ehttp::Response, dest_file: PathBuf) -> Result<PathBuf, String> {
     if resp.ok {
-        let mut file = fs::File::create(dest_file).unwrap(); // thread will panic if not file
+        let mut file = fs::File::create(&dest_file).unwrap(); // thread will panic if not file
         dbg!(&file);
 
         match file.write_all(&resp.bytes) {
-            Ok(_) => return Ok(()),
-            Err(_) => return Err("failed to write file".to_string()),
+            Ok(_) => return Ok(dest_file),
+            Err(err) => return Err(err.to_string()),
         };
     }
-    Err("invalid response".to_string())
+    Err(resp.status_text)
 }
 
 pub const fn ventoy_bin_name() -> &'static str {
