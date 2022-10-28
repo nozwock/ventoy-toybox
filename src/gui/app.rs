@@ -1,7 +1,6 @@
-use std::{collections::HashMap, fmt::format, fs, path::PathBuf};
+use std::{fs, path::PathBuf, process::Command};
 
-use crate::core::update;
-use crate::core::utils::FeedsItem;
+use crate::core::{update, utils, utils::FeedsItem};
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
 
@@ -425,9 +424,8 @@ impl eframe::App for App {
                                 }
                             }
                             VentoyUpdateFrames::Done => {
-                                ui.label("done");
                                 if self.ventoy_bin_path.is_none() {
-                                    self.ventoy_bin_path = dbg!(Some(update::find_file(
+                                    self.ventoy_bin_path = dbg!(Some(utils::find_file(
                                         self.ventoy_update_pkg_result
                                             .as_ref()
                                             .unwrap()
@@ -437,6 +435,55 @@ impl eframe::App for App {
                                         update::ventoy_bin_name(),
                                     )));
                                 }
+
+                                ui.vertical_centered(|ui| {
+                                    ui.add_space(ui.available_height() / 2. - 80.);
+                                    ui.heading(
+                                        RichText::new("All Done!")
+                                            .size(42.)
+                                            .color(egui::Color32::from_rgb(83, 157, 235)),
+                                    );
+                                    ui.add_space(16.);
+                                    if ui
+                                        .button(RichText::new("📂 Open Folder").size(32.))
+                                        .clicked()
+                                    {
+                                        utils::open_in_explorer(
+                                            self.ventoy_bin_path
+                                                .as_ref()
+                                                .unwrap()
+                                                .as_ref()
+                                                .unwrap()
+                                                .parent()
+                                                .unwrap(),
+                                        )
+                                        .unwrap();
+                                    }
+                                    ui.add_space(8.);
+                                    if ui
+                                        .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
+                                        .clicked()
+                                    {
+                                        #[cfg(target_os = "windows")]
+                                        {
+                                            Command::new(
+                                                self.ventoy_bin_path
+                                                    .as_ref()
+                                                    .unwrap()
+                                                    .as_ref()
+                                                    .unwrap()
+                                                    .as_os_str(),
+                                            )
+                                            .spawn()
+                                            .unwrap();
+                                        }
+                                        #[cfg(not(any(
+                                            target_os = "windows",
+                                            target_os = "macos"
+                                        )))]
+                                        {}
+                                    }
+                                });
                             }
                             VentoyUpdateFrames::Failed => {
                                 ui.label(

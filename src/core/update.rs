@@ -65,25 +65,6 @@ pub fn extract_zip(archive_path: &Path, dest_dir: &Path) {
     archive.extract(dest_dir).unwrap();
 }
 
-pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
-    if path.is_dir() {
-        for entry in fs::read_dir(path).unwrap() {
-            let entry = entry.unwrap();
-            let entry_path = entry.path();
-            dbg!(&entry_path);
-            if entry_path.is_dir() {
-                match find_file(&entry_path.as_path(), file_name) {
-                    Ok(file) => return Ok(file),
-                    Err(_) => (),
-                };
-            } else if entry_path.ends_with(file_name) {
-                return Ok(entry_path);
-            }
-        }
-    }
-    Err(format!("couldn't find {}", file_name))
-}
-
 pub const fn ventoy_bin_name() -> &'static str {
     #[cfg(target_os = "windows")]
     {
