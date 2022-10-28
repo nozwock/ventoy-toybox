@@ -351,10 +351,13 @@ impl eframe::App for App {
                                                         .download_url
                                                         .to_owned(),
                                                 );
-                                                // TODO: have pwd be the bin path
-                                                let mut pkg_path =
-                                                    PathBuf::from("./ventoy_toybox-cache");
-                                                pkg_path.push(format!("{}", pkg_name));
+                                                let mut pkg_path = dbg!(std::env::current_exe()
+                                                    .unwrap()
+                                                    .parent()
+                                                    .unwrap()
+                                                    .join("ventoy_toybox-cache"));
+                                                // PathBuf::from("./ventoy_toybox-cache");
+                                                pkg_path.push(pkg_name);
                                                 let mut ventoy_bin_dir =
                                                     PathBuf::from(pkg_path.parent().unwrap());
                                                 ventoy_bin_dir.push(format!(
@@ -362,7 +365,7 @@ impl eframe::App for App {
                                                     release.tag_name.to_string(),
                                                     native_os
                                                 ));
-                                                fs::create_dir_all(&ventoy_bin_dir).unwrap();
+                                                fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
                                                 ehttp::fetch(request, move |response| {
                                                     let pkg_status =
                                                         response.and_then(|response| {
@@ -471,8 +474,7 @@ impl eframe::App for App {
                                                     .as_ref()
                                                     .unwrap()
                                                     .as_ref()
-                                                    .unwrap()
-                                                    .as_os_str(),
+                                                    .unwrap(),
                                             )
                                             .spawn()
                                             .unwrap();
@@ -481,7 +483,16 @@ impl eframe::App for App {
                                             target_os = "windows",
                                             target_os = "macos"
                                         )))]
-                                        {}
+                                        {
+                                            dbg!(Command::new(dbg!(self
+                                                .ventoy_bin_path
+                                                .as_ref()
+                                                .unwrap()
+                                                .as_ref()
+                                                .unwrap()))
+                                            .spawn())
+                                            .unwrap();
+                                        }
                                     }
                                 });
                             }
