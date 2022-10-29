@@ -46,7 +46,7 @@ enum VentoyUpdateFrames {
 
 impl App {
     /// Called once before the first frame.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customized the look at feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -56,6 +56,8 @@ impl App {
         //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         // }
         // Self::default()
+
+        configure_fonts(&cc.egui_ctx);
 
         // dummy data ---!
         // let dummy_feeds = (1..=250).map(|x| FeedsItem {
@@ -131,30 +133,6 @@ impl App {
         });
         ui.separator();
     }
-
-    fn configure_fonts(&self, ctx: &egui::Context) {
-        let mut style = (*ctx.style()).clone();
-        // style.override_font_id = Some(egui::FontId::proportional(24.));
-        // for (_text_style, font_id) in style.text_styles.iter_mut() {
-        //     font_id.size = 16.;
-        // }
-        style
-            .text_styles
-            .get_mut(&egui::TextStyle::Body)
-            .unwrap()
-            .size = 16.;
-        style
-            .text_styles
-            .get_mut(&egui::TextStyle::Heading)
-            .unwrap()
-            .size = 28.;
-        style
-            .text_styles
-            .get_mut(&egui::TextStyle::Button)
-            .unwrap()
-            .size = 18.;
-        ctx.set_style(style);
-    }
 }
 
 impl eframe::App for App {
@@ -174,9 +152,6 @@ impl eframe::App for App {
         //     release_curr_group_idx,
         //     release_promise,
         // } = self;
-
-        self.configure_fonts(ctx);
-        // *ctx.memory() = Default::default();
 
         // buncha promises ahead~
         // i hate the way this is being done...but ok T~T
@@ -597,6 +572,30 @@ impl eframe::App for App {
         // });
         //         ui.spacing_mut().item_spacing.x = 0.0;
     }
+}
+
+fn configure_fonts(ctx: &egui::Context) {
+    let mut style = (*ctx.style()).clone();
+    // style.override_font_id = Some(egui::FontId::proportional(24.));
+    // for (_text_style, font_id) in style.text_styles.iter_mut() {
+    //     font_id.size = 16.;
+    // }
+    style
+        .text_styles
+        .get_mut(&egui::TextStyle::Body)
+        .unwrap()
+        .size = 16.;
+    style
+        .text_styles
+        .get_mut(&egui::TextStyle::Heading)
+        .unwrap()
+        .size = 28.;
+    style
+        .text_styles
+        .get_mut(&egui::TextStyle::Button)
+        .unwrap()
+        .size = 18.;
+    ctx.set_style(style);
 }
 
 fn draw_release_footer(ctx: &egui::Context) {
