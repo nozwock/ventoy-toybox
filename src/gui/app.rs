@@ -604,8 +604,8 @@ fn draw_release_footer(ctx: &egui::Context) {
             ui.add_space(10.);
             ui.label(RichText::new("Source: distrowatch.com").monospace());
             ui.hyperlink_to(
-                "nozwock/ventoy-toybox",
-                "https://github.com/nozwock/ventoy-toybox",
+                "nozwock/ventoy-toybox-feed",
+                "https://github.com/nozwock/ventoy-toybox-feed",
             );
             ui.add_space(10.);
         })
