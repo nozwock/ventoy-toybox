@@ -80,28 +80,37 @@ impl App {
 
         Self {
             filter_release_groups: dummy_groups,
-            filter_group_by_idx: 0,
-            // filter_release_entry: String::new(),
             page: AppPages::VentoyUpdate,
             ..Default::default()
         }
     }
 
     fn draw_release_cards(&self, ui: &mut egui::Ui) {
+        let group_name = self
+            .filter_release_groups
+            .get(self.filter_group_by_idx)
+            .unwrap();
+        let entry_text = &self.filter_release_entry;
         for item in &self.config.release_feeds {
-            const PADDING: f32 = 3.0;
-            ui.add_space(PADDING);
-            ui.horizontal(|ui| {
-                ui.label(&item.name);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
-                    ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
-                    ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
+            if (group_name == "all" || group_name == &item.group)
+                && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
+            {
+                const PADDING: f32 = 3.0;
+                ui.add_space(PADDING);
+                ui.horizontal(|ui| {
+                    ui.label(&item.name);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                        ui.style_mut().visuals.hyperlink_color =
+                            egui::Color32::from_rgb(0, 255, 255);
+                        ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
+                        ui.style_mut().visuals.hyperlink_color =
+                            egui::Color32::from_rgb(236, 135, 10);
+                        ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
+                    });
                 });
-            });
-            ui.add_space(PADDING);
-            ui.separator();
+                ui.add_space(PADDING);
+                ui.separator();
+            }
         }
     }
 
