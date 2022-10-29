@@ -129,6 +129,7 @@ impl App {
                             .color(egui::Color32::LIGHT_GREEN),
                     );
                 }
+                ui.hyperlink_to("", "https://github.com/nozwock/ventoy-toybox");
             });
         });
         ui.separator();
