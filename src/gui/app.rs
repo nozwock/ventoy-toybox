@@ -115,6 +115,12 @@ impl App {
             );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 egui::warn_if_debug_build(ui);
+                if !cfg!(debug_assertions) {
+                    ui.label(
+                        RichText::new(format!("v{}", env!("CARGO_PKG_VERSION")))
+                            .color(egui::Color32::LIGHT_GREEN),
+                    );
+                }
             });
         });
         ui.separator();
