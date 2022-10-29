@@ -75,11 +75,8 @@ impl App {
         // dummy_groups.insert(0, "all".to_owned());
         // let dummy_feeds = Vec::from_iter(dummy_feeds);
 
-        let mut dummy_groups: Vec<String> = Vec::new();
-        dummy_groups.push("all".to_owned());
-
         Self {
-            filter_release_groups: dummy_groups,
+            filter_release_groups: vec!["all".to_owned()],
             page: AppPages::VentoyUpdate,
             ..Default::default()
         }
@@ -542,7 +539,6 @@ impl eframe::App for App {
                                 }
                             }
                             ui.add_enabled_ui(filter_enabled, |ui| {
-                                // TODO: impl filters feat
                                 ui.collapsing(" 📃 Filter", |ui| {
                                     ui.horizontal(|ui| {
                                         ui.label("By name:");
