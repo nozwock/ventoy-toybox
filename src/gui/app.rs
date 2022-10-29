@@ -555,8 +555,9 @@ impl eframe::App for App {
                             // });
                         });
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                            let refresh_btn = ui.button("🔃");
-                            if refresh_btn.clicked() {}
+                            if ui.button("🔃").clicked() {
+                                self.release_feeds_promise = None;
+                            }
                         });
                     });
                     ui.separator();
