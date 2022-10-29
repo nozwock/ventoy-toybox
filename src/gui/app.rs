@@ -11,9 +11,9 @@ use poll_promise::Promise;
 pub struct App {
     page: AppPages,
     config: AppConfig,
-    // filter_release_entry: String,
-    // filter_group_by_idx: usize,
-    // filter_release_groups: Vec<String>,
+    filter_release_entry: String,
+    filter_group_by_idx: usize,
+    filter_release_groups: Vec<String>,
     ventoy_update_frame: VentoyUpdateFrames,
     release_feeds_promise: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
     ventoy_update_check_promise: Option<Promise<ehttp::Result<update::Release>>>,
@@ -79,29 +79,38 @@ impl App {
         dummy_groups.push("all".to_owned());
 
         Self {
-            // filter_release_groups: dummy_groups,
-            // filter_group_by_idx: 0,
-            // filter_release_entry: String::new(),
+            filter_release_groups: dummy_groups,
             page: AppPages::VentoyUpdate,
             ..Default::default()
         }
     }
 
     fn draw_release_cards(&self, ui: &mut egui::Ui) {
+        let group_name = self
+            .filter_release_groups
+            .get(self.filter_group_by_idx)
+            .unwrap();
+        let entry_text = &self.filter_release_entry;
         for item in &self.config.release_feeds {
-            const PADDING: f32 = 3.0;
-            ui.add_space(PADDING);
-            ui.horizontal(|ui| {
-                ui.label(&item.name);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(0, 255, 255);
-                    ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
-                    ui.style_mut().visuals.hyperlink_color = egui::Color32::from_rgb(236, 135, 10);
-                    ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
+            if (group_name == "all" || group_name == &item.group)
+                && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
+            {
+                const PADDING: f32 = 3.0;
+                ui.add_space(PADDING);
+                ui.horizontal(|ui| {
+                    ui.label(&item.name);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                        ui.style_mut().visuals.hyperlink_color =
+                            egui::Color32::from_rgb(0, 255, 255);
+                        ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
+                        ui.style_mut().visuals.hyperlink_color =
+                            egui::Color32::from_rgb(236, 135, 10);
+                        ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
+                    });
                 });
-            });
-            ui.add_space(PADDING);
-            ui.separator();
+                ui.add_space(PADDING);
+                ui.separator();
+            }
         }
     }
 
@@ -223,25 +232,25 @@ impl eframe::App for App {
             Some(Ok(feeds)) => {
                 if self.config.release_feeds.len() == 0 {
                     self.config.release_feeds = feeds.clone();
-                    //     let mut group_duplicates: Vec<String> = Vec::new();
-                    //     let mut groups: Vec<String> = self
-                    //         .config
-                    //         .release_feeds
-                    //         .clone()
-                    //         .into_iter()
-                    //         .map(|x| x.group)
-                    //         .filter(|x| {
-                    //             for t in &group_duplicates {
-                    //                 if t == x {
-                    //                     return false;
-                    //                 }
-                    //             }
-                    //             group_duplicates.push(x.to_owned());
-                    //             true
-                    //         })
-                    //         .collect();
-                    //     groups.insert(0, "all".to_owned());
-                    //     self.filter_release_groups = groups;
+                    let mut group_duplicates: Vec<String> = Vec::new();
+                    let mut groups: Vec<String> = self
+                        .config
+                        .release_feeds
+                        .clone()
+                        .into_iter()
+                        .map(|x| x.group)
+                        .filter(|x| {
+                            for t in &group_duplicates {
+                                if t == x {
+                                    return false;
+                                }
+                            }
+                            group_duplicates.push(x.to_owned());
+                            true
+                        })
+                        .collect();
+                    groups.insert(0, "all".to_owned());
+                    self.filter_release_groups = groups;
                 }
                 Some(Ok(()))
             }
@@ -520,45 +529,45 @@ impl eframe::App for App {
                 AppPages::ReleaseBrowse => {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            // let filter_enabled: bool;
-                            // match release_feeds_status {
-                            //     Some(Ok(_)) => {
-                            //         filter_enabled = true;
-                            //     }
-                            //     Some(Err(_)) => {
-                            //         filter_enabled = false;
-                            //     }
-                            //     None => {
-                            //         filter_enabled = false;
-                            //     }
-                            // }
-                            // ui.add_enabled_ui(filter_enabled, |ui| {
-                            //     // TODO: impl filters feat
-                            //     ui.collapsing(" 📃 Filter", |ui| {
-                            //         ui.horizontal(|ui| {
-                            //             ui.label("By name:");
-                            //             ui.add(
-                            //                 egui::TextEdit::singleline(
-                            //                     &mut self.filter_release_entry,
-                            //                 )
-                            //                 .desired_width(120.0),
-                            //             );
-                            //             self.filter_release_entry =
-                            //                 self.filter_release_entry.to_lowercase();
-                            //             if ui.button("ｘ").clicked() {
-                            //                 self.filter_release_entry.clear();
-                            //             }
+                            let filter_enabled: bool;
+                            match release_feeds_status {
+                                Some(Ok(_)) => {
+                                    filter_enabled = true;
+                                }
+                                Some(Err(_)) => {
+                                    filter_enabled = false;
+                                }
+                                None => {
+                                    filter_enabled = false;
+                                }
+                            }
+                            ui.add_enabled_ui(filter_enabled, |ui| {
+                                // TODO: impl filters feat
+                                ui.collapsing(" 📃 Filter", |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.label("By name:");
+                                        ui.add(
+                                            egui::TextEdit::singleline(
+                                                &mut self.filter_release_entry,
+                                            )
+                                            .desired_width(120.0),
+                                        );
+                                        self.filter_release_entry =
+                                            self.filter_release_entry.to_lowercase();
+                                        if ui.button("ｘ").clicked() {
+                                            self.filter_release_entry.clear();
+                                        }
 
-                            //             egui::ComboBox::from_id_source("group-combobox")
-                            //                 .show_index(
-                            //                     ui,
-                            //                     &mut self.filter_group_by_idx,
-                            //                     self.filter_release_groups.len(),
-                            //                     |idx| self.filter_release_groups[idx].to_owned(),
-                            //                 );
-                            //         });
-                            //     });
-                            // });
+                                        egui::ComboBox::from_id_source("group-combobox")
+                                            .show_index(
+                                                ui,
+                                                &mut self.filter_group_by_idx,
+                                                self.filter_release_groups.len(),
+                                                |idx| self.filter_release_groups[idx].to_owned(),
+                                            );
+                                    });
+                                });
+                            });
                         });
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                             if ui.button("🔃").clicked() {
