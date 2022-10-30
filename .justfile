@@ -9,12 +9,8 @@ dist_dir := "./target"
 # build for linux & win64 on a linux host
 default: _pre-build build-linux build-win _post-build
 
-@_CopyFileAs fpath tpath:
-    cp {{fpath}} {{parent_directory(tpath)}}
-    mv {{parent_directory(tpath)}}/{{file_name(fpath)}} {{parent_directory(tpath)}}/{{file_name(tpath)}}
-
 _pre-build:
-    rm -f {{dist_dir}}/{{target_name}}*
+    rm -f {{dist_dir}}/{{replace(bin_name, "-", "_")}}-*
     mkdir -p {{dist_dir}}
 
 build-host:
@@ -23,14 +19,14 @@ build-host:
 build-linux:
     rustup target add {{target-linux}}
     cross b --release --target {{target-linux}}
-    just _CopyFileAs ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux.bin
+    cp -T ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux.bin
     upx --best --lzma ./target/{{target-linux}}/release/{{bin_name}}
-    just _CopyFileAs ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux-upxed.bin
+    cp -T ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux-upxed.bin
 
 build-win:
     rustup target add {{target-win}}
     cross b --release --target {{target-win}}
-    just _CopyFileAs ./target/{{target-win}}/release/{{bin_name}}.exe {{dist_dir}}/{{target_name}}-windows.exe
+    cp -T ./target/{{target-win}}/release/{{bin_name}}.exe {{dist_dir}}/{{target_name}}-windows.exe
 # upx --best --lzma ./target/{{target_win}}/release/{{bin_name}}.exe
 
 _post-build:
