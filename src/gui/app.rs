@@ -21,6 +21,7 @@ pub struct App {
     ventoy_update_pkg_result: Option<ehttp::Result<PathBuf>>,
     ventoy_update_pkg_name: Option<String>,
     ventoy_bin_path: Option<Result<PathBuf, String>>,
+    err_dialogs: AppErrorDialogs,
 }
 
 #[derive(Default)]
@@ -42,6 +43,17 @@ enum VentoyUpdateFrames {
     Downloading,
     Done,
     Failed,
+}
+
+#[derive(Default)]
+struct AppErrorDialogs {
+    ventoy_launch_err: ErrorDialogState,
+}
+
+#[derive(Default)]
+struct ErrorDialogState {
+    visible: bool,
+    err_text: String,
 }
 
 impl App {
@@ -133,6 +145,25 @@ impl App {
             });
         });
         ui.separator();
+    }
+
+    fn draw_err_window(&mut self, ctx: &egui::Context, err_str: &str) {
+        egui::Window::new("Error occured!")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(2.);
+                    ui.label(RichText::new(err_str).color(egui::Color32::LIGHT_RED));
+                    ui.add_space(2.);
+                    ui.separator();
+                    ui.add_space(2.);
+                    if ui.button("Ok!").clicked() {
+                        self.err_dialogs.ventoy_launch_err.visible = false;
+                    }
+                });
+            });
     }
 }
 
@@ -457,32 +488,58 @@ impl eframe::App for App {
                                     {
                                         #[cfg(target_os = "windows")]
                                         {
-                                            Command::new(
-                                                self.ventoy_bin_path
-                                                    .as_ref()
-                                                    .unwrap()
-                                                    .as_ref()
-                                                    .unwrap(),
-                                            )
-                                            .spawn()
-                                            .unwrap();
-                                        }
-                                        #[cfg(not(any(
-                                            target_os = "windows",
-                                            target_os = "macos"
-                                        )))]
-                                        {
-                                            dbg!(Command::new(dbg!(self
+                                            match dbg!(Command::new(dbg!(self
                                                 .ventoy_bin_path
                                                 .as_ref()
                                                 .unwrap()
                                                 .as_ref()
                                                 .unwrap()))
                                             .spawn())
-                                            .unwrap();
+                                            {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    self.err_dialogs.ventoy_launch_err.visible =
+                                                        true;
+                                                    self.err_dialogs.ventoy_launch_err.err_text =
+                                                        err.to_string();
+                                                }
+                                            }
+                                        }
+                                        #[cfg(not(any(
+                                            target_os = "windows",
+                                            target_os = "macos"
+                                        )))]
+                                        {
+                                            match dbg!(Command::new(dbg!(self
+                                                .ventoy_bin_path
+                                                .as_ref()
+                                                .unwrap()
+                                                .as_ref()
+                                                .unwrap()))
+                                            .spawn())
+                                            {
+                                                Ok(_) => {}
+                                                Err(err) => {
+                                                    self.err_dialogs.ventoy_launch_err.visible =
+                                                        true;
+                                                    self.err_dialogs.ventoy_launch_err.err_text =
+                                                        err.to_string();
+                                                }
+                                            }
                                         }
                                     }
                                 });
+
+                                if self.err_dialogs.ventoy_launch_err.visible {
+                                    self.draw_err_window(
+                                        ctx,
+                                        self.err_dialogs
+                                            .ventoy_launch_err
+                                            .err_text
+                                            .clone()
+                                            .as_str(),
+                                    );
+                                }
                             }
                             VentoyUpdateFrames::Failed => {
                                 ui.label(
