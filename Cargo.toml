@@ -7,15 +7,15 @@ authors = ["nozwock <57829219+nozwock@users.noreply.github.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.65"
-confy = "0.5.0"
+anyhow = "1.0.66"
+confy = "0.5.1"
 eframe = { version = "0.19.0" }
 # features = ["persistence"]
 ehttp = "0.2.0"
 poll-promise = "0.2.0"
 reqwest = "0.11.12"
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.85"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = "1.0.87"
 ureq = { version = "2.5.0", features = ["json"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
