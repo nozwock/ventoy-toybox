@@ -16,15 +16,15 @@ pub struct FeedsItem {
     pub date: String,
 }
 
-pub fn feeds_new() -> Result<Vec<FeedsItem>> {
-    let response = ureq::get(
-        "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json",
-    )
-    .call()?;
-    let feeds: Vec<FeedsItem> = response.into_json()?;
-    dbg!(&feeds);
-    Ok(feeds)
-}
+// pub fn feeds_new() -> Result<Vec<FeedsItem>> {
+//     let response = ureq::get(
+//         "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json",
+//     )
+//     .call()?;
+//     let feeds: Vec<FeedsItem> = response.into_json()?;
+//     dbg!(&feeds);
+//     Ok(feeds)
+// }
 
 pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
     if path.is_dir() {
@@ -67,11 +67,11 @@ pub fn open_in_explorer(path: &Path) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
-    #[test]
-    fn feeds_fetch() {
-        let result = feeds_new();
-        assert!(result.is_ok(), "fetch failed!\n{:?}", result);
-    }
+    // #[test]
+    // fn feeds_fetch() {
+    //     let result = feeds_new();
+    //     assert!(result.is_ok(), "fetch failed!\n{:?}", result);
+    // }
 }
