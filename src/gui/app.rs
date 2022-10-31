@@ -216,11 +216,8 @@ impl eframe::App for App {
                     "https://api.github.com/repos/ventoy/Ventoy/releases/latest",
                 );
                 ehttp::fetch(request, move |response| {
-                    let ventoy_release = response.and_then(|response| {
-                        Ok(
-                            serde_json::from_str::<update::Release>(response.text().unwrap())
-                                .unwrap(),
-                        )
+                    let ventoy_release = response.map(|response| {
+                        serde_json::from_str::<update::Release>(response.text().unwrap()).unwrap()
                     });
                     dbg!(&ventoy_release);
                     sender.send(ventoy_release);
@@ -234,7 +231,7 @@ impl eframe::App for App {
             None => None,
             Some(Err(err)) => Some(Err(err.clone())),
             Some(Ok(feeds)) => {
-                if self.config.release_feeds.len() == 0 {
+                if self.config.release_feeds.is_empty() {
                     self.config.release_feeds = feeds.clone();
                     let mut group_duplicates: Vec<String> = Vec::new();
                     let mut groups: Vec<String> = self
@@ -381,8 +378,7 @@ impl eframe::App for App {
                                                     PathBuf::from(pkg_path.parent().unwrap());
                                                 ventoy_bin_dir.push(format!(
                                                     "ventoy-{}-{}",
-                                                    release.tag_name.to_string(),
-                                                    native_os
+                                                    release.tag_name, native_os
                                                 ));
                                                 fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
                                                 ehttp::fetch(request, move |response| {
@@ -559,18 +555,11 @@ impl eframe::App for App {
                 AppPages::ReleaseBrowse => {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            let filter_enabled: bool;
-                            match release_feeds_status {
-                                Some(Ok(_)) => {
-                                    filter_enabled = true;
-                                }
-                                Some(Err(_)) => {
-                                    filter_enabled = false;
-                                }
-                                None => {
-                                    filter_enabled = false;
-                                }
-                            }
+                            let filter_enabled: bool = match release_feeds_status {
+                                Some(Ok(_)) => true,
+                                Some(Err(_)) => false,
+                                None => false,
+                            };
                             ui.add_enabled_ui(filter_enabled, |ui| {
                                 ui.collapsing(" 📃 Filter", |ui| {
                                     ui.horizontal(|ui| {

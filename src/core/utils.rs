@@ -7,9 +7,6 @@ use std::{
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
-pub struct Feeds;
-
 #[derive(Deserialize, Debug, Clone)]
 pub struct FeedsItem {
     pub group: String,
@@ -19,16 +16,14 @@ pub struct FeedsItem {
     pub date: String,
 }
 
-impl Feeds {
-    pub fn new() -> Result<Vec<FeedsItem>> {
-        let response = ureq::get(
-            "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json",
-        )
-        .call()?;
-        let feeds: Vec<FeedsItem> = response.into_json()?;
-        dbg!(&feeds);
-        return Ok(feeds);
-    }
+pub fn feeds_new() -> Result<Vec<FeedsItem>> {
+    let response = ureq::get(
+        "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json",
+    )
+    .call()?;
+    let feeds: Vec<FeedsItem> = response.into_json()?;
+    dbg!(&feeds);
+    Ok(feeds)
 }
 
 pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
@@ -38,9 +33,8 @@ pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
             let entry_path = entry.path();
             dbg!(&entry_path);
             if entry_path.is_dir() {
-                match find_file(&entry_path.as_path(), file_name) {
-                    Ok(file) => return Ok(file),
-                    Err(_) => (),
+                if let Ok(file) = find_file(entry_path.as_path(), file_name) {
+                    return Ok(file);
                 };
             } else if entry_path.ends_with(file_name) {
                 return Ok(entry_path);
@@ -77,7 +71,7 @@ mod tests {
 
     #[test]
     fn feeds_fetch() {
-        let result = Feeds::new();
+        let result = feeds_new();
         assert!(result.is_ok(), "fetch failed!\n{:?}", result);
     }
 }
