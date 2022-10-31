@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// https://github.com/emilk/egui/pull/1008
 mod core;
 mod gui;
 use crate::gui::app;
