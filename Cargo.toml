@@ -18,7 +18,11 @@ serde = { version = "1.0.147", features = ["derive"] }
 serde_json = "1.0.87"
 ureq = { version = "2.5.0", features = ["json"] }
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
+[build-dependencies]
+# https://github.com/mxre/winres/issues/40
+winres = { git = "https://github.com/Nilstrieb/winres", branch = "linking-flags" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
 flate2 = "1.0.24"
 tar = "0.4.38"
 
@@ -29,3 +33,5 @@ zip = "0.6.3"
 opt-level = "s"
 strip = true
 lto = true
+
+[package.metadata.winres]

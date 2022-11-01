@@ -2357,6 +2357,7 @@ dependencies = [
  "serde_json",
  "tar",
  "ureq",
+ "winres",
  "zip",
 ]
 
@@ -2771,6 +2772,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "winres"
+version = "0.1.11"
+source = "git+https://github.com/Nilstrieb/winres?branch=linking-flags#c839134b5f78d7dd0f5c8211ec6c7b675b0026fc"
+dependencies = [
+ "toml",
+ "version_check",
 ]
 
 [[package]]
