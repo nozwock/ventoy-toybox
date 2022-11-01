@@ -10,8 +10,8 @@ dist_dir := "./target"
 default: _pre-build build-linux build-win _post-build
 
 _pre-build:
-    rm -f {{dist_dir}}/{{replace(bin_name, "-", "_")}}-*
     mkdir -p {{dist_dir}}
+    rm -f {{dist_dir}}/{{replace(bin_name, "-", "_")}}-*
 
 build-host:
     cargo b --release
