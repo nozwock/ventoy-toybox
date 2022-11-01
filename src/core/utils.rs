@@ -50,7 +50,7 @@ pub fn open_in_explorer(path: &Path) -> anyhow::Result<()> {
     {
         cmd_name = "explorer";
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
     {
         cmd_name = "xdg-open";
     }

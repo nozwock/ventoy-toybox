@@ -339,7 +339,7 @@ impl eframe::App for App {
                                         {
                                             native_os = "windows";
                                         }
-                                        #[cfg(not(target_os = "windows"))]
+                                        #[cfg(target_os = "linux")]
                                         {
                                             native_os = "linux";
                                         }
@@ -394,7 +394,7 @@ impl eframe::App for App {
                                                                     &ventoy_bin_dir,
                                                                 )
                                                             }
-                                                            #[cfg(not(target_os = "windows"))]
+                                                            #[cfg(target_os = "linux")]
                                                             {
                                                                 update::extract_targz(
                                                                     &pkg_path,
@@ -501,10 +501,7 @@ impl eframe::App for App {
                                                 }
                                             }
                                         }
-                                        #[cfg(not(any(
-                                            target_os = "windows",
-                                            target_os = "macos"
-                                        )))]
+                                        #[cfg(target_os = "linux")]
                                         {
                                             match dbg!(Command::new(dbg!(self
                                                 .ventoy_bin_path

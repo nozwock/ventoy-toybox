@@ -50,7 +50,7 @@ pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<
     Err(resp.status_text)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
 pub fn extract_targz(archive_path: &Path, dest_dir: &Path) {
     use flate2::read::GzDecoder;
     use fs::File;
@@ -70,7 +70,7 @@ pub const fn ventoy_bin_name() -> &'static str {
     {
         "Ventoy2Disk.exe"
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
     {
         "VentoyGUI.x86_64"
     }
