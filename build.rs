@@ -8,7 +8,6 @@ fn main() -> io::Result<()> {
         let mut res = WindowsResource::new();
         match std::env::var("CARGO_CFG_TARGET_ENV").unwrap().as_str() {
             "gnu" => {
-                #[cfg(not(target_os = "windows"))]
                 res.set_ar_path("x86_64-w64-mingw32-ar")
                     .set_windres_path("x86_64-w64-mingw32-windres");
             }
