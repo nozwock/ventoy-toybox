@@ -18,25 +18,6 @@ pub struct ReleaseAsset {
     pub download_url: String,
 }
 
-/// Download a file from the internet
-// pub async fn download_file<T: ToString>(url: T, dest_file: &PathBuf) -> anyhow::Result<()> {
-//     use anyhow::anyhow;
-//     let url = url.to_string();
-//     dbg!("downloading file from {}", &url);
-
-//     match ureq::get(&url).call() {
-//         Ok(resp) => {
-//             let mut file = fs::File::create(dest_file).unwrap();
-
-//             if let Err(e) = io::copy(&mut resp.into_reader(), &mut file) {
-//                 return Err(anyhow!("write failed!\n{}", e));
-//             }
-//         }
-//         Err(e) => return Err(anyhow!("req failed!\n{}", e)),
-//     }
-//     anyhow::Ok(())
-// }
-
 pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<(), String> {
     if resp.ok {
         let mut file = fs::File::create(dest_file).unwrap(); // thread will panic if not file
