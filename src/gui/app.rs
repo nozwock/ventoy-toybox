@@ -347,11 +347,8 @@ impl eframe::App for App {
                                                     .download_url
                                                     .clone(),
                                             );
-                                            let mut pkg_path = dbg!(std::env::current_exe()
-                                                .unwrap()
-                                                .parent()
-                                                .unwrap()
-                                                .join(crate::defines::APP_CACHE_DIR));
+                                            let mut pkg_path =
+                                                crate::defines::app_cache_dir().unwrap();
                                             pkg_path.push(pkg_name);
                                             let mut ventoy_bin_dir =
                                                 PathBuf::from(pkg_path.parent().unwrap());

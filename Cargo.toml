@@ -13,6 +13,7 @@ serde_json = "1.0.87"
 poll-promise = "0.2.0"
 ehttp = "0.2.0"
 eframe = { version = "0.19.0" }                        # features = ["persistence"]
+dirs = "4.0"
 
 [build-dependencies]
 # https://github.com/mxre/winres/issues/40
