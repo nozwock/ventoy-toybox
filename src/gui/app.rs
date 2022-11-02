@@ -83,26 +83,6 @@ impl App {
         // Set custom font styles for the app
         configure_fonts(&cc.egui_ctx);
 
-        // ################################################
-        // * dummy data for testing
-        // let dummy_feeds = (1..=250).map(|x| FeedsItem {
-        //     group: format!("?group{}", x),
-        //     name: format!("some-xyz-linux-distro-etc{}.iso.torrent", x),
-        //     torrent_url: format!(
-        //         "https://blahblahblah.uwu/some-xyz-linux-distro-etc{}.iso.torrent",
-        //         x
-        //     ),
-        //     magnet: format!("magnet:?xt=2fhSomeRandomChars8ru1ur10rh01g0930g093weg{}", x),
-        //     date: format!("?date{}", x),
-        // });
-        // let mut dummy_groups = dummy_feeds
-        //     .clone()
-        //     .map(|x| x.group)
-        //     .collect::<Vec<String>>();
-        // dummy_groups.insert(0, "all".to_string());
-        // let dummy_feeds = Vec::from_iter(dummy_feeds);
-        // ###############################################
-
         Self {
             filter_release_groups: vec!["all".to_string()],
             ..Default::default()

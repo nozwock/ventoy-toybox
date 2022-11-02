@@ -8,16 +8,11 @@ authors = ["nozwock <57829219+nozwock@users.noreply.github.com>"]
 
 [dependencies]
 anyhow = "1.0.66"
-# confy = "0.5.1"
-eframe = { version = "0.19.0" }
-# features = ["persistence"]
-ehttp = "0.2.0"
-poll-promise = "0.2.0"
-# reqwest = "0.11.12"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = "1.0.87"
-ureq = { version = "2.5.0", features = ["json"] }
-# image = "0.24"
+poll-promise = "0.2.0"
+ehttp = "0.2.0"
+eframe = { version = "0.19.0" }                        # features = ["persistence"]
 
 [build-dependencies]
 # https://github.com/mxre/winres/issues/40
