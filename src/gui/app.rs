@@ -18,7 +18,7 @@ pub struct App {
     filter_release_groups: Vec<String>,
 
     // some states for later use
-    ventoy_update_pkg_result: Option<ehttp::Result<PathBuf>>,
+    ventoy_update_pkg_dir: Option<ehttp::Result<PathBuf>>,
     ventoy_update_pkg_name: Option<String>,
     ventoy_bin_path: Option<Result<PathBuf, String>>,
 }
@@ -99,13 +99,12 @@ impl App {
         //     .clone()
         //     .map(|x| x.group)
         //     .collect::<Vec<String>>();
-        // dummy_groups.insert(0, "all".to_owned());
+        // dummy_groups.insert(0, "all".to_string());
         // let dummy_feeds = Vec::from_iter(dummy_feeds);
         // ###############################################
 
         Self {
-            filter_release_groups: vec!["all".to_owned()],
-            page: AppPages::VentoyUpdate,
+            filter_release_groups: vec!["all".to_string()],
             ..Default::default()
         }
     }
@@ -120,7 +119,7 @@ impl App {
             if (group_name == "all" || group_name == &item.group)
                 && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
             {
-                const PADDING: f32 = 3.0;
+                const PADDING: f32 = 3.;
                 ui.add_space(PADDING);
                 ui.horizontal(|ui| {
                     ui.label(&item.name);
@@ -253,11 +252,11 @@ impl eframe::App for App {
                                     return false;
                                 }
                             }
-                            group_duplicates.push(x.to_owned());
+                            group_duplicates.push(x.clone());
                             true
                         })
                         .collect();
-                    groups.insert(0, "all".to_owned());
+                    groups.insert(0, "all".to_string());
                     self.filter_release_groups = groups;
                 }
                 Some(Ok(()))
@@ -285,13 +284,13 @@ impl eframe::App for App {
                 AppPages::VentoyUpdate => match ventoy_release_info {
                     None => {
                         ui.vertical_centered_justified(|ui| {
-                            ui.add_space((ui.available_height()) / 2.0 - 54.0);
+                            ui.add_space((ui.available_height()) / 2. - 54.);
                             ui.label(
                                 RichText::new("Checking for ventoy updates...")
                                     .color(egui::Color32::WHITE)
-                                    .size(26.0),
+                                    .size(26.),
                             );
-                            ui.add_space(8.0);
+                            ui.add_space(8.);
                             ui.add(egui::Spinner::new().size(32.));
                         });
                     }
@@ -359,14 +358,14 @@ impl eframe::App for App {
                                         Some(idx) => {
                                             let pkg_name =
                                                 release.assets.get(idx).unwrap().name.to_string();
-                                            self.ventoy_update_pkg_name = Some(pkg_name.to_owned());
+                                            self.ventoy_update_pkg_name = Some(pkg_name.clone());
                                             let request = ehttp::Request::get(
                                                 release
                                                     .assets
                                                     .get(idx)
                                                     .unwrap()
                                                     .download_url
-                                                    .to_owned(),
+                                                    .clone(),
                                             );
                                             let mut pkg_path = dbg!(std::env::current_exe()
                                                 .unwrap()
@@ -431,11 +430,11 @@ impl eframe::App for App {
                             match ventoy_release_pkg_promise.ready() {
                                 None => (),
                                 Some(Err(err)) => {
-                                    self.ventoy_update_pkg_result = Some(Err(err.to_string()));
+                                    self.ventoy_update_pkg_dir = Some(Err(err.to_string()));
                                     self.frame.ventoy_update = VentoyUpdateFrames::Failed;
                                 }
                                 Some(Ok(dir)) => {
-                                    self.ventoy_update_pkg_result = Some(Ok(dir.clone()));
+                                    self.ventoy_update_pkg_dir = Some(Ok(dir.clone()));
                                     self.frame.ventoy_update = VentoyUpdateFrames::Done;
                                 }
                             }
@@ -443,7 +442,7 @@ impl eframe::App for App {
                         VentoyUpdateFrames::Done => {
                             if self.ventoy_bin_path.is_none() {
                                 self.ventoy_bin_path = dbg!(Some(utils::find_file(
-                                    self.ventoy_update_pkg_result
+                                    self.ventoy_update_pkg_dir
                                         .as_ref()
                                         .unwrap()
                                         .as_ref()
@@ -528,7 +527,7 @@ impl eframe::App for App {
                         VentoyUpdateFrames::Failed => {
                             ui.label(
                                 RichText::new(
-                                    self.ventoy_update_pkg_result
+                                    self.ventoy_update_pkg_dir
                                         .as_ref()
                                         .unwrap()
                                         .as_ref()
@@ -568,7 +567,7 @@ impl eframe::App for App {
                                                 ui,
                                                 &mut self.filter_group_by_idx,
                                                 self.filter_release_groups.len(),
-                                                |idx| self.filter_release_groups[idx].to_owned(),
+                                                |idx| self.filter_release_groups[idx].clone(),
                                             );
                                     });
                                 });
