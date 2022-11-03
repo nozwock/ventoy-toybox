@@ -139,27 +139,6 @@ impl App {
         });
         ui.separator();
     }
-
-    fn draw_err_dialog(&mut self, ctx: &egui::Context, err_text: &str) -> bool {
-        let mut visible = true;
-        egui::Window::new("Error occured!")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
-            .show(ctx, |ui| {
-                ui.vertical(|ui| {
-                    ui.add_space(2.);
-                    ui.label(RichText::new(err_text).color(egui::Color32::LIGHT_RED));
-                    ui.add_space(2.);
-                    ui.separator();
-                    ui.add_space(2.);
-                    if ui.button("Ok!").clicked() {
-                        visible = false;
-                    }
-                });
-            });
-        visible
-    }
 }
 
 impl eframe::App for App {
@@ -457,7 +436,7 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
-                                    // TODO: sigh...fix the issue of not being able to launch exec on windows
+                                    // TODO: sigh...fix issue #1
                                     #[cfg(target_os = "windows")]
                                     {
                                         if let Err(err) = dbg!(Command::new(dbg!(self
@@ -491,14 +470,13 @@ impl eframe::App for App {
                                 }
                             });
 
-                            if self.err_dialog.ventoy_launch_err.visible {
-                                if self.draw_err_dialog(
+                            if self.err_dialog.ventoy_launch_err.visible
+                                && !draw_err_dialog(
                                     ctx,
-                                    self.err_dialog.ventoy_launch_err.err_text.clone().as_str(),
-                                ) == false
-                                {
-                                    self.err_dialog.ventoy_launch_err.visible = false;
-                                }
+                                    self.err_dialog.ventoy_launch_err.err_text.as_str(),
+                                )
+                            {
+                                self.err_dialog.ventoy_launch_err.visible = false;
                             }
                         }
                         VentoyUpdateFrames::Failed => {
@@ -616,4 +594,25 @@ fn draw_release_footer(ctx: &egui::Context) {
             ui.add_space(10.);
         })
     });
+}
+
+fn draw_err_dialog(ctx: &egui::Context, err_text: &str) -> bool {
+    let mut visible = true;
+    egui::Window::new("Error occured!")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+        .show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.add_space(2.);
+                ui.label(RichText::new(err_text).color(egui::Color32::LIGHT_RED));
+                ui.add_space(2.);
+                ui.separator();
+                ui.add_space(2.);
+                if ui.button("Ok!").clicked() {
+                    visible = false;
+                }
+            });
+        });
+    visible
 }
