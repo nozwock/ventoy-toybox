@@ -6,18 +6,20 @@ A desktop application consisting of some helper utilities for [ventoy][ventoy].
 
 <img src="https://user-images.githubusercontent.com/57829219/198823849-7da17229-2c6c-4d57-a745-0b6ec48db12a.png" width="512">
 
-## Massive Numba o Features
+**NOTE:** Prebuilt binaries are available for amd64 Linux and Bindows.
+
+## Humongous Numba o Features
 
 Now let's go over the massive list of features this app packs, make sure to not get overwhelmed, oki? <br>
 Ventoy Toybox allows you to:
 
 1. Fetch [ventoy][ventoy] updates and run em over!
-2. Browse thru latest published distro releases at a blazingly fast speed!
+2. Browse thru latest published distro releases blazingly fast!
 
 And...yep, that's it...\*phew\*, good job making to this point! :tada:
 
 ## FAQs
-1. Wait a minute...you just could've a simple script for fetching updates, what's the point of all this?
+1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
     - Well...you wouldn't have this blazingly fast feature packed app then, would you? haha..ha..hah...
 
 
