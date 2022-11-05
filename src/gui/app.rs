@@ -10,7 +10,7 @@ pub struct App {
     page: AppPages,
     frame: AppFrames,
     promise: AppPromises,
-    err_dialog: AppErrorDialogs,
+    prompt: AppPromptDialogs,
 
     // filter UI states in releases browse page
     filter_release_entry: String,
@@ -57,14 +57,16 @@ struct AppPromises {
 }
 
 #[derive(Default)]
-struct AppErrorDialogs {
-    ventoy_launch_err: ErrorDialog,
+struct AppPromptDialogs {
+    ventoy_launch_err: PromptDialog,
+    ventoy_launch_info: PromptDialog,
 }
 
 #[derive(Default)]
-struct ErrorDialog {
+struct PromptDialog {
     visible: bool,
-    err_text: String,
+    title: String,
+    text: String,
 }
 
 impl App {
@@ -85,6 +87,17 @@ impl App {
 
         Self {
             filter_release_groups: vec!["all".to_string()],
+            prompt: AppPromptDialogs {
+                ventoy_launch_err: PromptDialog {
+                    title: "Error occurred!".to_string(),
+                    ..Default::default()
+                },
+                ventoy_launch_info: PromptDialog {
+                    title: "Alert!".to_string(),
+                    text: "If the app is located on a Ventoy drive,\nIt's recommended to close the app after Ventoy2Disk is launched so that there will be no mounting or any other issues.".to_string(),
+                    ..Default::default()
+                },
+            },
             ..Default::default()
         }
     }
@@ -436,6 +449,7 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
+                                    self.prompt.ventoy_launch_info.visible = true;
                                     // TODO: sigh...fix issue #1
                                     let ventoy_bin_path = dbg!(self
                                         .ventoy_bin_path
@@ -453,9 +467,8 @@ impl eframe::App for App {
                                         .current_dir(dbg!(ventoy_bin_path.parent().unwrap()))
                                         .spawn())
                                         {
-                                            self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.err_text =
-                                                err.to_string();
+                                            self.prompt.ventoy_launch_err.visible = true;
+                                            self.prompt.ventoy_launch_err.text = err.to_string();
                                         }
                                     }
                                     #[cfg(target_os = "linux")]
@@ -463,22 +476,23 @@ impl eframe::App for App {
                                         if let Err(err) =
                                             dbg!(Command::new(ventoy_bin_path).spawn())
                                         {
-                                            self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.err_text =
-                                                err.to_string();
+                                            self.prompt.ventoy_launch_err.visible = true;
+                                            self.prompt.ventoy_launch_err.text = err.to_string();
                                         }
                                     }
                                 }
                             });
 
-                            if self.err_dialog.ventoy_launch_err.visible
-                                && !draw_err_dialog(
-                                    ctx,
-                                    self.err_dialog.ventoy_launch_err.err_text.as_str(),
-                                )
-                            {
-                                self.err_dialog.ventoy_launch_err.visible = false;
-                            }
+                            draw_prompt_dialog(
+                                ctx,
+                                &mut self.prompt.ventoy_launch_err,
+                                egui::Color32::LIGHT_RED,
+                            ); // error dialog
+                            draw_prompt_dialog(
+                                ctx,
+                                &mut self.prompt.ventoy_launch_info,
+                                egui::Color32::WHITE,
+                            );
                         }
                         VentoyUpdateFrames::Failed => {
                             ui.label(
@@ -597,23 +611,23 @@ fn draw_release_footer(ctx: &egui::Context) {
     });
 }
 
-fn draw_err_dialog(ctx: &egui::Context, err_text: &str) -> bool {
-    let mut visible = true;
-    egui::Window::new("Error occured!")
-        .collapsible(false)
-        .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
-        .show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.add_space(2.);
-                ui.label(RichText::new(err_text).color(egui::Color32::LIGHT_RED));
-                ui.add_space(2.);
-                ui.separator();
-                ui.add_space(2.);
-                if ui.button("Ok!").clicked() {
-                    visible = false;
-                }
+fn draw_prompt_dialog(ctx: &egui::Context, prompt: &mut PromptDialog, text_color: egui::Color32) {
+    if prompt.visible {
+        egui::Window::new(&prompt.title)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(2.);
+                    ui.label(RichText::new(&prompt.text).color(text_color));
+                    ui.add_space(2.);
+                    ui.separator();
+                    ui.add_space(2.);
+                    if ui.button("Ok!").clicked() {
+                        prompt.visible = false;
+                    }
+                });
             });
-        });
-    visible
+    }
 }
