@@ -58,13 +58,14 @@ struct AppPromises {
 
 #[derive(Default)]
 struct AppErrorDialogs {
-    ventoy_launch_err: ErrorDialog,
+    ventoy_launch_err: PromptDialog,
 }
 
 #[derive(Default)]
-struct ErrorDialog {
+struct PromptDialog {
     visible: bool,
-    err_text: String,
+    title: String,
+    text: String,
 }
 
 impl App {
@@ -85,6 +86,12 @@ impl App {
 
         Self {
             filter_release_groups: vec!["all".to_string()],
+            err_dialog: AppErrorDialogs {
+                ventoy_launch_err: PromptDialog {
+                    title: "Error occured!".to_string(),
+                    ..Default::default()
+                },
+            },
             ..Default::default()
         }
     }
@@ -448,7 +455,7 @@ impl eframe::App for App {
                                         .spawn())
                                         {
                                             self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.err_text =
+                                            self.err_dialog.ventoy_launch_err.text =
                                                 err.to_string();
                                         }
                                     }
@@ -463,21 +470,14 @@ impl eframe::App for App {
                                         .spawn())
                                         {
                                             self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.err_text =
+                                            self.err_dialog.ventoy_launch_err.text =
                                                 err.to_string();
                                         }
                                     }
                                 }
                             });
 
-                            if self.err_dialog.ventoy_launch_err.visible
-                                && !draw_err_dialog(
-                                    ctx,
-                                    self.err_dialog.ventoy_launch_err.err_text.as_str(),
-                                )
-                            {
-                                self.err_dialog.ventoy_launch_err.visible = false;
-                            }
+                            draw_err_dialog(ctx, &mut self.err_dialog.ventoy_launch_err);
                         }
                         VentoyUpdateFrames::Failed => {
                             ui.label(
@@ -596,23 +596,23 @@ fn draw_release_footer(ctx: &egui::Context) {
     });
 }
 
-fn draw_err_dialog(ctx: &egui::Context, err_text: &str) -> bool {
-    let mut visible = true;
-    egui::Window::new("Error occured!")
-        .collapsible(false)
-        .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
-        .show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.add_space(2.);
-                ui.label(RichText::new(err_text).color(egui::Color32::LIGHT_RED));
-                ui.add_space(2.);
-                ui.separator();
-                ui.add_space(2.);
-                if ui.button("Ok!").clicked() {
-                    visible = false;
-                }
+fn draw_err_dialog(ctx: &egui::Context, prompt: &mut PromptDialog) {
+    if prompt.visible {
+        egui::Window::new(&prompt.title)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(2.);
+                    ui.label(RichText::new(&prompt.text).color(egui::Color32::LIGHT_RED));
+                    ui.add_space(2.);
+                    ui.separator();
+                    ui.add_space(2.);
+                    if ui.button("Ok!").clicked() {
+                        prompt.visible = false;
+                    }
+                });
             });
-        });
-    visible
+    }
 }
