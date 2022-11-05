@@ -10,7 +10,7 @@ pub struct App {
     page: AppPages,
     frame: AppFrames,
     promise: AppPromises,
-    err_dialog: AppErrorDialogs,
+    prompt: AppPromptDialogs,
 
     // filter UI states in releases browse page
     filter_release_entry: String,
@@ -57,8 +57,9 @@ struct AppPromises {
 }
 
 #[derive(Default)]
-struct AppErrorDialogs {
+struct AppPromptDialogs {
     ventoy_launch_err: PromptDialog,
+    ventoy_launch_info: PromptDialog,
 }
 
 #[derive(Default)]
@@ -86,9 +87,14 @@ impl App {
 
         Self {
             filter_release_groups: vec!["all".to_string()],
-            err_dialog: AppErrorDialogs {
+            prompt: AppPromptDialogs {
                 ventoy_launch_err: PromptDialog {
-                    title: "Error occured!".to_string(),
+                    title: "Error occurred!".to_string(),
+                    ..Default::default()
+                },
+                ventoy_launch_info: PromptDialog {
+                    title: "Alert!".to_string(),
+                    text: "If the app is located on a Ventoy drive,\nIt's recommended to close the app after Ventoy2Disk is launched so that there will be no mounting or any other issues.".to_string(),
                     ..Default::default()
                 },
             },
@@ -443,6 +449,7 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
+                                    self.prompt.ventoy_launch_info.visible = true;
                                     // TODO: sigh...fix issue #1
                                     #[cfg(target_os = "windows")]
                                     {
@@ -469,15 +476,23 @@ impl eframe::App for App {
                                             .unwrap()))
                                         .spawn())
                                         {
-                                            self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.text =
-                                                err.to_string();
+                                            self.prompt.ventoy_launch_err.visible = true;
+                                            self.prompt.ventoy_launch_err.text = err.to_string();
                                         }
                                     }
                                 }
                             });
 
-                            draw_err_dialog(ctx, &mut self.err_dialog.ventoy_launch_err);
+                            draw_prompt_dialog(
+                                ctx,
+                                &mut self.prompt.ventoy_launch_err,
+                                egui::Color32::LIGHT_RED,
+                            ); // error dialog
+                            draw_prompt_dialog(
+                                ctx,
+                                &mut self.prompt.ventoy_launch_info,
+                                egui::Color32::WHITE,
+                            );
                         }
                         VentoyUpdateFrames::Failed => {
                             ui.label(
@@ -596,7 +611,7 @@ fn draw_release_footer(ctx: &egui::Context) {
     });
 }
 
-fn draw_err_dialog(ctx: &egui::Context, prompt: &mut PromptDialog) {
+fn draw_prompt_dialog(ctx: &egui::Context, prompt: &mut PromptDialog, text_color: egui::Color32) {
     if prompt.visible {
         egui::Window::new(&prompt.title)
             .collapsible(false)
@@ -605,7 +620,7 @@ fn draw_err_dialog(ctx: &egui::Context, prompt: &mut PromptDialog) {
             .show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.add_space(2.);
-                    ui.label(RichText::new(&prompt.text).color(egui::Color32::LIGHT_RED));
+                    ui.label(RichText::new(&prompt.text).color(text_color));
                     ui.add_space(2.);
                     ui.separator();
                     ui.add_space(2.);
