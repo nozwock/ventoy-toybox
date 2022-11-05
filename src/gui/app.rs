@@ -461,9 +461,8 @@ impl eframe::App for App {
                                             .unwrap()))
                                         .spawn())
                                         {
-                                            self.err_dialog.ventoy_launch_err.visible = true;
-                                            self.err_dialog.ventoy_launch_err.text =
-                                                err.to_string();
+                                            self.prompt.ventoy_launch_err.visible = true;
+                                            self.prompt.ventoy_launch_err.text = err.to_string();
                                         }
                                     }
                                     #[cfg(target_os = "linux")]
