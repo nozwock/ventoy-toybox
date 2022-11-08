@@ -441,15 +441,21 @@ impl eframe::App for App {
                                     .clicked()
                                 {
                                     self.prompt.ventoy_launch_info.visible = true;
-                                    // TODO: fix issue #1
+                                    // TODO: sigh...fix issue #1
+                                    let ventoy_bin_path = dbg!(self
+                                        .ventoy_bin_path
+                                        .as_ref()
+                                        .unwrap()
+                                        .as_ref()
+                                        .unwrap());
                                     #[cfg(target_os = "windows")]
                                     {
-                                        if let Err(err) = dbg!(Command::new(dbg!(self
-                                            .ventoy_bin_path
-                                            .as_ref()
+                                        if let Err(err) = dbg!(Command::new(dbg!(ventoy_bin_path
+                                            .file_name()
                                             .unwrap()
-                                            .as_ref()
+                                            .to_str()
                                             .unwrap()))
+                                        .current_dir(dbg!(ventoy_bin_path.parent().unwrap()))
                                         .spawn())
                                         {
                                             self.prompt.ventoy_launch_err.visible = true;
@@ -458,13 +464,8 @@ impl eframe::App for App {
                                     }
                                     #[cfg(target_os = "linux")]
                                     {
-                                        if let Err(err) = dbg!(Command::new(dbg!(self
-                                            .ventoy_bin_path
-                                            .as_ref()
-                                            .unwrap()
-                                            .as_ref()
-                                            .unwrap()))
-                                        .spawn())
+                                        if let Err(err) =
+                                            dbg!(Command::new(ventoy_bin_path).spawn())
                                         {
                                             self.prompt.ventoy_launch_err.visible = true;
                                             self.prompt.ventoy_launch_err.text = err.to_string();
