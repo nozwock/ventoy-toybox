@@ -4,6 +4,8 @@ use crate::core::{update, utils, utils::FeedsItem};
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
 
+use super::{PromptDialog, VentoyUpdateFrames};
+
 #[derive(Default)]
 pub struct App {
     config: AppConfig,
@@ -12,14 +14,15 @@ pub struct App {
     promise: AppPromises,
     prompt: AppPromptDialogs,
 
-    // filter UI states in releases browse page
-    filter_release_entry: String,
-    filter_group_by_idx: usize,
-    filter_release_groups: Vec<String>,
+    // filter ui states in release browse page
+    filter_release_entry_box: String,
+    filter_group_by_combobox: Vec<String>,
+    filter_group_by_combobox_idx: usize,
 
-    // some states for later use
+    // cloned states of some promises
     ventoy_update_pkg_dir: Option<ehttp::Result<PathBuf>>,
     ventoy_update_pkg_name: Option<String>,
+
     ventoy_bin_path: Option<Result<PathBuf, String>>,
 }
 
@@ -40,15 +43,6 @@ struct AppFrames {
     ventoy_update: VentoyUpdateFrames,
 }
 
-#[derive(Default, PartialEq, Debug)]
-enum VentoyUpdateFrames {
-    #[default]
-    FoundRelease,
-    Downloading,
-    Done,
-    Failed,
-}
-
 #[derive(Default)]
 struct AppPromises {
     release_feeds: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
@@ -62,13 +56,6 @@ struct AppPromptDialogs {
     ventoy_launch_info: PromptDialog,
 }
 
-#[derive(Default)]
-struct PromptDialog {
-    visible: bool,
-    title: String,
-    text: String,
-}
-
 impl App {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -77,16 +64,16 @@ impl App {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        // if let Some(storage) = cc.storage {
-        //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        // }
-        // Self::default()
+        #[cfg(feature = "persistence")]
+        if let Some(storage) = cc.storage {
+            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        }
 
         // Set custom font styles for the app
         configure_fonts(&cc.egui_ctx);
 
         Self {
-            filter_release_groups: vec!["all".to_string()],
+            filter_group_by_combobox: vec!["all".to_string()],
             prompt: AppPromptDialogs {
                 ventoy_launch_err: PromptDialog {
                     title: "Error occurred!".to_string(),
@@ -104,10 +91,10 @@ impl App {
 
     fn draw_release_cards(&self, ui: &mut egui::Ui) {
         let group_name = self
-            .filter_release_groups
-            .get(self.filter_group_by_idx)
+            .filter_group_by_combobox
+            .get(self.filter_group_by_combobox_idx)
             .unwrap();
-        let entry_text = &self.filter_release_entry;
+        let entry_text = &self.filter_release_entry_box;
         for item in &self.config.release_feeds {
             if (group_name == "all" || group_name == &item.group)
                 && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
@@ -156,16 +143,17 @@ impl App {
 
 impl eframe::App for App {
     /// Called by the frame work to save state before shutdown.
-    // fn save(&mut self, storage: &mut dyn eframe::Storage) {
-    //     eframe::set_value(storage, eframe::APP_KEY, self);
-    // }
+    #[cfg(feature = "persistence")]
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
+    }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // buncha promises ahead~
         // I hate the way this is being done...but ok T~T
-        let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| { // * mutable borrow here aswell
+        let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| {
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
@@ -204,11 +192,12 @@ impl eframe::App for App {
                 promise
             });
 
-        // * had to do this at the start...bcz i can't figure out how to solve that multiple borrow issue atm ;-[
+        // * had to do this at the start...bcz I can't figure out how to solve that multiple borrow issue atm ;-[
         let release_feeds_status = match release_feeds_promise.ready() {
             None => None,
             Some(Err(err)) => Some(Err(err.clone())),
             Some(Ok(feeds)) => {
+                // * this branch will continue only once and i.e. on the first frame
                 if self.config.release_feeds.is_empty() {
                     self.config.release_feeds = feeds.clone();
                     let mut group_duplicates: Vec<String> = Vec::new();
@@ -218,6 +207,7 @@ impl eframe::App for App {
                         .clone()
                         .into_iter()
                         .map(|x| x.group)
+                        // filtering out duplicate groups
                         .filter(|x| {
                             for t in &group_duplicates {
                                 if t == x {
@@ -228,8 +218,9 @@ impl eframe::App for App {
                             true
                         })
                         .collect();
+                    // 'all' the default group
                     groups.insert(0, "all".to_string());
-                    self.filter_release_groups = groups;
+                    self.filter_group_by_combobox = groups;
                 }
                 Some(Ok(()))
             }
@@ -251,7 +242,7 @@ impl eframe::App for App {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_topbar(ui); // * mutable borrow here
+            self.draw_topbar(ui);
             match self.page {
                 AppPages::VentoyUpdate => match ventoy_release_info {
                     None => {
@@ -450,7 +441,7 @@ impl eframe::App for App {
                                     .clicked()
                                 {
                                     self.prompt.ventoy_launch_info.visible = true;
-                                    // TODO: sigh...fix issue #1
+                                    // TODO: fix issue #1
                                     #[cfg(target_os = "windows")]
                                     {
                                         if let Err(err) = dbg!(Command::new(dbg!(self
@@ -521,22 +512,22 @@ impl eframe::App for App {
                                         ui.label("By name:");
                                         ui.add(
                                             egui::TextEdit::singleline(
-                                                &mut self.filter_release_entry,
+                                                &mut self.filter_release_entry_box,
                                             )
                                             .desired_width(120.0),
                                         );
-                                        self.filter_release_entry =
-                                            self.filter_release_entry.to_lowercase();
+                                        self.filter_release_entry_box =
+                                            self.filter_release_entry_box.to_lowercase();
                                         if ui.button("ｘ").clicked() {
-                                            self.filter_release_entry.clear();
+                                            self.filter_release_entry_box.clear();
                                         }
 
                                         egui::ComboBox::from_id_source("group-combobox")
                                             .show_index(
                                                 ui,
-                                                &mut self.filter_group_by_idx,
-                                                self.filter_release_groups.len(),
-                                                |idx| self.filter_release_groups[idx].clone(),
+                                                &mut self.filter_group_by_combobox_idx,
+                                                self.filter_group_by_combobox.len(),
+                                                |idx| self.filter_group_by_combobox[idx].clone(),
                                             );
                                     });
                                 });
