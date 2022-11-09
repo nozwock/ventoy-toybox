@@ -30,7 +30,7 @@ where
     Err(resp.status_text)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub fn extract_targz<P>(archive_path: P, dest_dir: P)
 where
     P: AsRef<Path>,
@@ -41,7 +41,7 @@ where
     archive.unpack(dest_dir).unwrap();
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 pub fn extract_zip<P>(archive_path: P, dest_dir: P)
 where
     P: AsRef<Path>,
@@ -52,7 +52,7 @@ where
 }
 
 pub const fn ventoy_bin_name() -> &'static str {
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     {
         "Ventoy2Disk.exe"
     }

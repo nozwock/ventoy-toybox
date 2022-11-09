@@ -303,7 +303,7 @@ impl eframe::App for App {
                                     let (sender, promise) = Promise::new();
                                     let native_os: &str;
                                     let mut pkg_idx: Option<usize> = None;
-                                    #[cfg(target_os = "windows")]
+                                    #[cfg(windows)]
                                     {
                                         native_os = "windows";
                                     }
@@ -345,7 +345,7 @@ impl eframe::App for App {
                                                     let result = update::write_resp_to_file(
                                                         response, &pkg_path,
                                                     );
-                                                    #[cfg(target_os = "windows")]
+                                                    #[cfg(windows)]
                                                     {
                                                         update::extract_zip(
                                                             &pkg_path,
@@ -448,7 +448,7 @@ impl eframe::App for App {
                                         .unwrap()
                                         .as_ref()
                                         .unwrap());
-                                    #[cfg(target_os = "windows")]
+                                    #[cfg(windows)]
                                     {
                                         if let Err(err) = dbg!(Command::new(dbg!(ventoy_bin_path
                                             .file_name()

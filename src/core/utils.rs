@@ -42,7 +42,7 @@ where
     P: AsRef<Path>,
 {
     let cmd_name: &str;
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     {
         cmd_name = "explorer";
     }
