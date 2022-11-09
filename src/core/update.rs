@@ -1,9 +1,5 @@
 use serde::Deserialize;
-use std::{
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{fs, io::Write, path::Path};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Release {
@@ -18,7 +14,10 @@ pub struct ReleaseAsset {
     pub download_url: String,
 }
 
-pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<(), String> {
+pub fn write_resp_to_file<P>(resp: ehttp::Response, dest_file: P) -> Result<(), String>
+where
+    P: AsRef<Path>,
+{
     if resp.ok {
         let mut file = fs::File::create(dest_file).unwrap(); // thread will panic if not file
         dbg!(&file);
@@ -32,7 +31,10 @@ pub fn write_resp_to_file(resp: ehttp::Response, dest_file: &PathBuf) -> Result<
 }
 
 #[cfg(target_os = "linux")]
-pub fn extract_targz(archive_path: &Path, dest_dir: &Path) {
+pub fn extract_targz<P>(archive_path: P, dest_dir: P)
+where
+    P: AsRef<Path>,
+{
     use flate2::read::GzDecoder;
     use fs::File;
     let mut archive = tar::Archive::new(GzDecoder::new(File::open(archive_path).unwrap()));
@@ -40,7 +42,10 @@ pub fn extract_targz(archive_path: &Path, dest_dir: &Path) {
 }
 
 #[cfg(target_os = "windows")]
-pub fn extract_zip(archive_path: &Path, dest_dir: &Path) {
+pub fn extract_zip<P>(archive_path: P, dest_dir: P)
+where
+    P: AsRef<Path>,
+{
     use fs::File;
     let mut archive = zip::ZipArchive::new(File::open(archive_path).unwrap()).unwrap();
     archive.extract(dest_dir).unwrap();

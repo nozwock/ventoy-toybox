@@ -16,8 +16,11 @@ pub struct FeedsItem {
     pub date: String,
 }
 
-pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
-    if path.is_dir() {
+pub fn find_file<P>(path: P, file_name: &str) -> Result<PathBuf, String>
+where
+    P: AsRef<Path>,
+{
+    if path.as_ref().is_dir() {
         for entry in fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();
             let entry_path = entry.path();
@@ -34,7 +37,10 @@ pub fn find_file(path: &Path, file_name: &str) -> Result<PathBuf, String> {
     Err(format!("couldn't find {}", file_name))
 }
 
-pub fn open_in_explorer(path: &Path) -> anyhow::Result<()> {
+pub fn open_in_explorer<P>(path: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     let cmd_name: &str;
     #[cfg(target_os = "windows")]
     {
@@ -44,12 +50,15 @@ pub fn open_in_explorer(path: &Path) -> anyhow::Result<()> {
     {
         cmd_name = "xdg-open";
     }
-    match dbg!(Command::new(cmd_name).arg(path.as_os_str()).spawn()) {
+    match dbg!(Command::new(cmd_name)
+        .arg(path.as_ref().as_os_str())
+        .spawn())
+    {
         Ok(_) => Ok(()),
         Err(err) => Err(anyhow!(
             "command failed: {} {}\n{}",
             cmd_name,
-            path.to_str().unwrap(),
+            path.as_ref().to_str().unwrap(),
             err.to_string()
         )),
     }
