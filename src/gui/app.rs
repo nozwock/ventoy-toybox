@@ -449,13 +449,9 @@ impl eframe::App for App {
                                         .unwrap());
                                     #[cfg(windows)]
                                     {
-                                        match dbg!(Command::new(dbg!(ventoy_bin_path
-                                            .file_name()
-                                            .unwrap()
-                                            .to_str()
-                                            .unwrap()))
-                                        .current_dir(dbg!(ventoy_bin_path.parent().unwrap()))
-                                        .spawn())
+                                        match dbg!(Command::new(dbg!(ventoy_bin_path))
+                                            .current_dir(dbg!(ventoy_bin_path.parent().unwrap()))
+                                            .spawn())
                                         {
                                             Ok(_) => self.prompt.ventoy_launch_info.visible = true,
                                             Err(e) => {
