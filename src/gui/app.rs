@@ -440,7 +440,6 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
-                                    self.prompt.ventoy_launch_info.visible = true;
                                     // TODO: sigh...fix issue #1
                                     let ventoy_bin_path = dbg!(self
                                         .ventoy_bin_path
@@ -450,7 +449,7 @@ impl eframe::App for App {
                                         .unwrap());
                                     #[cfg(windows)]
                                     {
-                                        if let Err(err) = dbg!(Command::new(dbg!(ventoy_bin_path
+                                        match dbg!(Command::new(dbg!(ventoy_bin_path
                                             .file_name()
                                             .unwrap()
                                             .to_str()
@@ -458,17 +457,21 @@ impl eframe::App for App {
                                         .current_dir(dbg!(ventoy_bin_path.parent().unwrap()))
                                         .spawn())
                                         {
-                                            self.prompt.ventoy_launch_err.visible = true;
-                                            self.prompt.ventoy_launch_err.text = err.to_string();
-                                        }
+                                            Ok(_) => self.prompt.ventoy_launch_info.visible = true,
+                                            Err(e) => {
+                                                self.prompt.ventoy_launch_err.visible = true;
+                                                self.prompt.ventoy_launch_err.text = e.to_string();
+                                            }
+                                        };
                                     }
                                     #[cfg(target_os = "linux")]
                                     {
-                                        if let Err(err) =
-                                            dbg!(Command::new(ventoy_bin_path).spawn())
-                                        {
-                                            self.prompt.ventoy_launch_err.visible = true;
-                                            self.prompt.ventoy_launch_err.text = err.to_string();
+                                        match dbg!(Command::new(ventoy_bin_path).spawn()) {
+                                            Ok(_) => self.prompt.ventoy_launch_info.visible = true,
+                                            Err(e) => {
+                                                self.prompt.ventoy_launch_err.visible = true;
+                                                self.prompt.ventoy_launch_err.text = e.to_string();
+                                            }
                                         }
                                     }
                                 }
