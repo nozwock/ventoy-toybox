@@ -1,29 +1,51 @@
 # Ventoy Toybox
 
-A desktop application consisting of some helper utilities for [ventoy][ventoy].
+A desktop application consisting of some helper utilities for [ventoy][ventoy]
 
-> Get your latest release [**`here!`**][release]
+> Download latest release [**`here!`**][release]
 
-<img src="https://user-images.githubusercontent.com/57829219/198823849-7da17229-2c6c-4d57-a745-0b6ec48db12a.png" width="512">
+## Preview
 
-**NOTE:** Prebuilt binaries are available for amd64 Linux and Bindows.
+<img src="https://user-images.githubusercontent.com/57829219/198823849-7da17229-2c6c-4d57-a745-0b6ec48db12a.png" alt="preview image" width="512">
 
-## Humongous Numba o Features
+**NOTE:** Prebuilt binaries are available for `amd64` Linux and Bindows
 
-Now let's go over the massive list of features this app packs, make sure to not get overwhelmed, oki? <br>
-Ventoy Toybox allows you to:
+## Features
 
-1. Fetch [ventoy][ventoy] updates and run em over!
-2. Browse thru latest published distro releases blazingly fast!
+- Rust
+- Blazingly Fast
+- Fetch updates for [ventoy][ventoy]
+- Browse through latest linux distro releases
+- Download linux distro images via torrents
+- Filter distros by name or torrent file name
+- Easy to use
+- Messy code
 
-And...yep, that's it...\*phew\*, good job making to this point! :tada:
+## Building
+
+Clone the repository using git and change to the local repository directory:
+
+```bash
+git clone https://github.com/nozwock/ventoy-toybox.git
+cd ventoy-toybox
+```
+
+`Stable Rust` is required to build this project. Install it by following [rustup.rs](https://rustup.rs) instructions.
+
+```bash
+cargo build --release
+```
 
 ## FAQs
 1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
     - Well...you wouldn't have this blazingly fast feature packed app then, would you? haha..ha..hah...
 
+## Licenese
 
-<sub>I swear I wasn't tripping while writing this!...I think...</sub>
+[MIT](https://choosealicense.com/licenses/mit/)
+
+
+<sub>don't look at README's revision history...don't...</sub>
 
 [ventoy]: https://github.com/ventoy/Ventoy
 [release]: https://github.com/nozwock/ventoy-toybox/releases/latest
