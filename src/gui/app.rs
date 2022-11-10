@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{fs, path::PathBuf};
 
 use crate::core::{update, utils, utils::FeedsItem};
 use eframe::egui::{self, RichText, ScrollArea};
@@ -461,7 +461,9 @@ impl eframe::App for App {
                                     }
                                     #[cfg(target_os = "linux")]
                                     {
-                                        match dbg!(Command::new(ventoy_bin_path).spawn()) {
+                                        match dbg!(
+                                            std::process::Command::new(ventoy_bin_path).spawn()
+                                        ) {
                                             Ok(_) => self.prompt.ventoy_launch_info.visible = true,
                                             Err(e) => {
                                                 self.prompt.ventoy_launch_err.visible = true;
