@@ -63,3 +63,44 @@ where
         )),
     }
 }
+
+#[cfg(windows)]
+pub fn string_to_pcstr(string: &str) -> windows::core::PCSTR {
+    windows::core::PCSTR::from_raw(format!("{string}{}", '\0').as_str().as_ptr())
+}
+
+#[cfg(windows)]
+pub fn runas_admin<P>(path: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
+    use windows::{
+        s, Win32::Foundation::GetLastError, Win32::UI::Shell::ShellExecuteA,
+        Win32::UI::WindowsAndMessaging::SW_NORMAL,
+    };
+
+    let fpath = string_to_pcstr(
+        path.as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("failed to convert path to string"))?,
+    );
+
+    let pwd = string_to_pcstr(
+        path.as_ref()
+            .parent()
+            .ok_or(anyhow!("root can't have a parent"))?
+            .to_str()
+            .ok_or(anyhow!("failed to convert path to string"))?,
+    );
+
+    let result;
+    unsafe {
+        result = ShellExecuteA(None, s!("runas"), fpath, s!(""), pwd, SW_NORMAL);
+        println!("{}", GetLastError().0);
+    }
+
+    match result.0 {
+        x if x > 32 => Ok(()),
+        _ => Err(anyhow!("Admin privileges denied!")),
+    }
+}
