@@ -69,8 +69,7 @@ pub fn string_to_pcstr<S>(string: S) -> windows::core::PCSTR
 where
     S: ToString + std::fmt::Display,
 {
-    use windows::core::PCSTR;
-    PCSTR::from_raw(format!("{string}{}", '\0').as_str().as_ptr())
+    windows::core::PCSTR::from_raw(format!("{string}{}", '\0').as_str().as_ptr())
 }
 
 #[cfg(windows)]
@@ -86,15 +85,15 @@ where
     let fpath = string_to_pcstr(
         path.as_ref()
             .to_str()
-            .ok_or_else(|| anyhow!("failed to conv path to str"))?,
+            .ok_or_else(|| anyhow!("failed to convert path to string"))?,
     );
 
     let pwd = string_to_pcstr(
         path.as_ref()
             .parent()
-            .ok_or(anyhow!("parent is root"))?
+            .ok_or(anyhow!("root can't have a parent"))?
             .to_str()
-            .ok_or(anyhow!("failed to conv path to str"))?,
+            .ok_or(anyhow!("failed to convert path to string"))?,
     );
 
     let result;

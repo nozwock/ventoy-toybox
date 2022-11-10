@@ -440,7 +440,6 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
-                                    // TODO: sigh...fix issue #1
                                     let ventoy_bin_path = dbg!(self
                                         .ventoy_bin_path
                                         .as_ref()
