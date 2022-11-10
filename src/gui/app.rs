@@ -350,18 +350,18 @@ impl eframe::App for App {
                                                         update::extract_zip(
                                                             &pkg_path,
                                                             &ventoy_bin_dir,
-                                                        )
+                                                        ).unwrap();
                                                     }
                                                     #[cfg(target_os = "linux")]
                                                     {
                                                         update::extract_targz(
                                                             &pkg_path,
                                                             &ventoy_bin_dir,
-                                                        );
+                                                        ).unwrap();
                                                     }
                                                     match result {
                                                         Ok(_) => Ok(ventoy_bin_dir),
-                                                        Err(err) => Err(err),
+                                                        Err(e) => Err(e.to_string()),
                                                     }
                                                 });
                                                 dbg!(&pkg_status);
@@ -401,15 +401,18 @@ impl eframe::App for App {
                         }
                         VentoyUpdateFrames::Done => {
                             if self.ventoy_bin_path.is_none() {
-                                self.ventoy_bin_path = dbg!(Some(utils::find_file(
-                                    self.ventoy_update_pkg_dir
-                                        .as_ref()
-                                        .unwrap()
-                                        .as_ref()
-                                        .unwrap()
-                                        .as_path(),
-                                    update::ventoy_bin_name(),
-                                )));
+                                self.ventoy_bin_path = dbg!(Some(
+                                    utils::find_file(
+                                        self.ventoy_update_pkg_dir
+                                            .as_ref()
+                                            .expect("pkg must exist if reached `Done` frame arm, i.e. bin must also exist")
+                                            .as_ref()
+                                            .expect("err case will only exist in `Failed` frame arm")
+                                            .as_path(),
+                                        update::ventoy_bin_name(),
+                                    )
+                                    .map_err(|e| e.to_string())
+                                ));
                             }
 
                             ui.vertical_centered(|ui| {

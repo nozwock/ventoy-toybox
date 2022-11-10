@@ -1,5 +1,10 @@
+use anyhow::anyhow;
 use serde::Deserialize;
-use std::{fs, io::Write, path::Path};
+use std::{
+    fs,
+    io::{self, Write},
+    path::Path,
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Release {
@@ -14,41 +19,36 @@ pub struct ReleaseAsset {
     pub download_url: String,
 }
 
-pub fn write_resp_to_file<P>(resp: ehttp::Response, dest_file: P) -> Result<(), String>
+pub fn write_resp_to_file<P>(resp: ehttp::Response, dest_file: P) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
     if resp.ok {
-        let mut file = fs::File::create(dest_file).unwrap(); // thread will panic if not file
-        dbg!(&file);
-
-        match file.write_all(&resp.bytes) {
-            Ok(_) => return Ok(()),
-            Err(err) => return Err(err.to_string()),
-        };
+        let mut file = fs::File::create(dest_file)?; // thread will panic if not file
+        return Ok(file.write_all(&resp.bytes)?);
     }
-    Err(resp.status_text)
+    Err(anyhow!(resp.status_text))
 }
 
 #[cfg(unix)]
-pub fn extract_targz<P>(archive_path: P, dest_dir: P)
+pub fn extract_targz<P>(archive_path: P, dest_dir: P) -> io::Result<()>
 where
     P: AsRef<Path>,
 {
     use flate2::read::GzDecoder;
-    use fs::File;
-    let mut archive = tar::Archive::new(GzDecoder::new(File::open(archive_path).unwrap()));
-    archive.unpack(dest_dir).unwrap();
+    let mut archive = tar::Archive::new(GzDecoder::new(fs::File::open(archive_path)?));
+    archive.unpack(dest_dir)?;
+    Ok(())
 }
 
 #[cfg(windows)]
-pub fn extract_zip<P>(archive_path: P, dest_dir: P)
+pub fn extract_zip<P>(archive_path: P, dest_dir: P) -> io::Result<()>
 where
     P: AsRef<Path>,
 {
-    use fs::File;
-    let mut archive = zip::ZipArchive::new(File::open(archive_path).unwrap()).unwrap();
-    archive.extract(dest_dir).unwrap();
+    let mut archive = zip::ZipArchive::new(fs::File::open(archive_path)?)?;
+    archive.extract(dest_dir)?;
+    Ok(())
 }
 
 pub const fn ventoy_bin_name() -> &'static str {

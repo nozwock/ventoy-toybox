@@ -1,10 +1,10 @@
 use std::{
-    fs,
+    fs, io,
     path::{Path, PathBuf},
     process::Command,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -16,25 +16,26 @@ pub struct FeedsItem {
     pub date: String,
 }
 
-pub fn find_file<P>(path: P, file_name: &str) -> Result<PathBuf, String>
+pub fn find_file<P>(path: P, fname: &str) -> io::Result<PathBuf>
 where
     P: AsRef<Path>,
 {
     if path.as_ref().is_dir() {
-        for entry in fs::read_dir(path).unwrap() {
-            let entry = entry.unwrap();
-            let entry_path = entry.path();
-            dbg!(&entry_path);
-            if entry_path.is_dir() {
-                if let Ok(file) = find_file(entry_path.as_path(), file_name) {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?.path();
+            if entry.is_dir() {
+                if let Ok(file) = find_file(entry.as_path(), fname) {
                     return Ok(file);
                 };
-            } else if entry_path.ends_with(file_name) {
-                return Ok(entry_path);
+            } else if entry.is_file() && entry.ends_with(fname) {
+                return Ok(entry);
             }
         }
     }
-    Err(format!("couldn't find {}", file_name))
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        format!("couldn't find {}", fname),
+    ))
 }
 
 pub fn open_in_explorer<P>(path: P) -> anyhow::Result<()>
@@ -50,15 +51,17 @@ where
     {
         cmd_name = "xdg-open";
     }
-    match dbg!(Command::new(cmd_name)
+    match Command::new(cmd_name)
         .arg(path.as_ref().as_os_str())
-        .spawn())
+        .spawn()
     {
         Ok(_) => Ok(()),
         Err(err) => Err(anyhow!(
             "command failed: {} {}\n{}",
             cmd_name,
-            path.as_ref().to_str().unwrap(),
+            path.as_ref()
+                .to_str()
+                .ok_or(anyhow!("path is not valid unicode"))?,
             err.to_string()
         )),
     }
