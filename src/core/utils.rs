@@ -63,3 +63,48 @@ where
         )),
     }
 }
+
+#[cfg(windows)]
+pub fn string_to_pcstr<S>(string: S) -> windows::core::PCSTR
+where
+    S: ToString + std::fmt::Display,
+{
+    use windows::core::PCSTR;
+    PCSTR::from_raw(format!("{string}{}", '\0').as_str().as_ptr())
+}
+
+#[cfg(windows)]
+pub fn runas_admin<P>(path: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
+    use windows::{
+        s, Win32::Foundation::GetLastError, Win32::UI::Shell::ShellExecuteA,
+        Win32::UI::WindowsAndMessaging::SW_NORMAL,
+    };
+
+    let fpath = string_to_pcstr(
+        path.as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("failed to conv path to str"))?,
+    );
+
+    let pwd = string_to_pcstr(
+        path.as_ref()
+            .parent()
+            .ok_or(anyhow!("parent is root"))?
+            .to_str()
+            .ok_or(anyhow!("failed to conv path to str"))?,
+    );
+
+    let result;
+    unsafe {
+        result = ShellExecuteA(None, s!("runas"), fpath, s!(""), pwd, SW_NORMAL);
+        println!("{}", GetLastError().0);
+    }
+
+    match result.0 {
+        x if x > 32 => Ok(()),
+        _ => Err(anyhow!("Admin privileges denied!")),
+    }
+}
