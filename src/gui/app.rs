@@ -449,7 +449,10 @@ impl eframe::App for App {
                                     #[cfg(windows)]
                                     {
                                         match utils::runas_admin(ventoy_bin_path) {
-                                            Ok(_) => self.prompt.ventoy_launch_info.visible = true,
+                                            Ok(_) => {
+                                                self.prompt.ventoy_launch_info.visible = true;
+                                                self.prompt.ventoy_launch_err.visible = false;
+                                            }
                                             Err(e) => {
                                                 self.prompt.ventoy_launch_err.visible = true;
                                                 self.prompt.ventoy_launch_err.text = e.to_string();
