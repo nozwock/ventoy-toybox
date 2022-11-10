@@ -65,10 +65,7 @@ where
 }
 
 #[cfg(windows)]
-pub fn string_to_pcstr<S>(string: S) -> windows::core::PCSTR
-where
-    S: ToString + std::fmt::Display,
-{
+pub fn string_to_pcstr(string: &str) -> windows::core::PCSTR {
     windows::core::PCSTR::from_raw(format!("{string}{}", '\0').as_str().as_ptr())
 }
 
