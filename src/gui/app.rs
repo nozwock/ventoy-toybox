@@ -81,7 +81,10 @@ impl App {
                 },
                 ventoy_launch_info: PromptDialog {
                     title: "Alert!".to_string(),
-                    text: "If the app is located on a Ventoy drive,\nIt's recommended to close the app after Ventoy2Disk is launched so that there will be no mounting or any other issues.".to_string(),
+                    text: "If the app is located on a Ventoy drive,\n\
+                    It's recommended to close the app after Ventoy2Disk is \
+                    launched so that there will be no mounting or any other issues."
+                        .to_string(),
                     ..Default::default()
                 },
             },
