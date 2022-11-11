@@ -2,7 +2,7 @@ target-linux := "x86_64-unknown-linux-gnu"
 target-win := "x86_64-pc-windows-gnu"
 bin_name := "ventoy-toybox"
 # have to hardcode it for now
-version := "0.3.0"
+version := "0.3.1"
 target_name := replace(bin_name, "-", "_") + "-" + version + "-amd64"
 dist_dir := "./target"
 
