@@ -262,6 +262,15 @@ impl eframe::App for App {
                         });
                     }
                     Some(Err(err)) => {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                            ui.label(RichText::new("Error occurred!").strong().italics());
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                                if ui.button("🔃").clicked() {
+                                self.promise.ventoy_release_info = None;
+                                }
+                            });
+                        });
+                        ui.separator();
                         ui.label(RichText::new(err).color(egui::Color32::LIGHT_RED));
                     }
                     Some(Ok(release)) => match self.frame.ventoy_update {
