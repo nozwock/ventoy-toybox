@@ -27,7 +27,12 @@ where
         let mut file = fs::File::create(dest_file)?; // thread will panic if not file
         return Ok(file.write_all(&resp.bytes)?);
     }
-    Err(anyhow!(resp.status_text))
+    Err(anyhow!(
+        "{} {} for {}",
+        resp.status,
+        resp.status_text,
+        resp.url
+    ))
 }
 
 #[cfg(unix)]

@@ -90,10 +90,7 @@ impl App {
     }
 
     fn draw_release_cards(&self, ui: &mut egui::Ui) {
-        let group_name = self
-            .filter_group_by_combobox
-            .get(self.filter_group_by_combobox_idx)
-            .unwrap();
+        let group_name = &self.filter_group_by_combobox[self.filter_group_by_combobox_idx];
         let entry_text = &self.filter_release_entry_box;
         for item in &self.config.release_feeds {
             if (group_name == "all" || group_name == &item.group)
@@ -153,17 +150,20 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // buncha promises ahead~
         // I hate the way this is being done...but ok T~T
+
+        // ! why's rust analyzer dead for this chunk of code. What's going on with it?
         let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| {
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
             let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
             ehttp::fetch(request, move |response| {
                 let release_feeds  = response.and_then(|response| {
-                    dbg!(&response);
-                    if response.ok {
-                        return Ok(serde_json::from_str::<Vec<FeedsItem>>(response.text().unwrap()).unwrap());
-                    }
-                    Err(format!("{} {}: Failed to fetch release feeds!\n{}",response.status, response.status_text, response.url))
+                    // ! had to manually format this long line...why's fmt not working?????
+                    serde_json::from_str::<Vec<FeedsItem>>(response.text().ok_or(format!(
+                        "{} {}: failed to get valid utf8 text from response\n{}",
+                        response.status, response.status_text, response.url
+                    ))?)
+                    .map_err(|e| e.to_string())
                 });
                 if release_feeds.is_err() {
                     dbg!(&release_feeds);
@@ -182,8 +182,12 @@ impl eframe::App for App {
                     "https://api.github.com/repos/ventoy/Ventoy/releases/latest",
                 );
                 ehttp::fetch(request, move |response| {
-                    let ventoy_release = response.map(|response| {
-                        serde_json::from_str::<update::Release>(response.text().unwrap()).unwrap()
+                    let ventoy_release = response.and_then(|response| {
+                        serde_json::from_str::<update::Release>(response.text().ok_or(format!(
+                            "{} {}: failed to get valid utf8 text from response\n{}",
+                            response.status, response.status_text, response.url
+                        ))?)
+                        .map_err(|e| e.to_string())
                     });
                     dbg!(&ventoy_release);
                     sender.send(ventoy_release);
@@ -301,6 +305,7 @@ impl eframe::App for App {
                                 self.promise.ventoy_update_pkg.get_or_insert_with(|| {
                                     let ctx = ctx.clone();
                                     let (sender, promise) = Promise::new();
+
                                     let native_os: &str;
                                     let mut pkg_idx: Option<usize> = None;
                                     #[cfg(windows)]
@@ -311,30 +316,31 @@ impl eframe::App for App {
                                     {
                                         native_os = "linux";
                                     }
+
                                     for (idx, asset) in release.assets.iter().enumerate() {
                                         if asset.name.to_lowercase().contains(native_os) {
                                             pkg_idx = Some(idx);
                                             break;
                                         }
                                     }
+
                                     match pkg_idx {
                                         Some(idx) => {
                                             let pkg_name =
-                                                release.assets.get(idx).unwrap().name.to_string();
+                                                release.assets[idx].name.to_string();
                                             self.ventoy_update_pkg_name = Some(pkg_name.clone());
                                             let request = ehttp::Request::get(
                                                 release
-                                                    .assets
-                                                    .get(idx)
-                                                    .unwrap()
+                                                    .assets[idx]
                                                     .download_url
                                                     .clone(),
                                             );
+
+                                            // ! rust fmt dead here aswell ???
                                             let mut pkg_path =
-                                                crate::defines::app_cache_dir().unwrap();
+                                                crate::defines::app_cache_dir().expect("expect to have a os-wide cache dir");
+                                            let mut ventoy_bin_dir = pkg_path.clone();
                                             pkg_path.push(pkg_name);
-                                            let mut ventoy_bin_dir =
-                                                PathBuf::from(pkg_path.parent().unwrap());
                                             ventoy_bin_dir.push(format!(
                                                 "ventoy-{}-{}",
                                                 release.tag_name, native_os
@@ -342,25 +348,26 @@ impl eframe::App for App {
                                             fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
                                             ehttp::fetch(request, move |response| {
                                                 let pkg_status = response.and_then(|response| {
-                                                    let result = update::write_resp_to_file(
-                                                        response, &pkg_path,
-                                                    );
+                                                    // ! wow...what bootiphul code...rustfmt...aarghaagaaargh
+                                                    match update::write_resp_to_file(response, &pkg_path)
+                                                    {
+                                                        Ok(_) => {
                                                     #[cfg(windows)]
                                                     {
                                                         update::extract_zip(
                                                             &pkg_path,
                                                             &ventoy_bin_dir,
-                                                        ).unwrap();
+                                                        ).map_err(|e| e.to_string())?;
                                                     }
                                                     #[cfg(target_os = "linux")]
                                                     {
                                                         update::extract_targz(
                                                             &pkg_path,
                                                             &ventoy_bin_dir,
-                                                        ).unwrap();
+                                                        ).map_err(|e| e.to_string())?;
                                                     }
-                                                    match result {
-                                                        Ok(_) => Ok(ventoy_bin_dir),
+                                                    Ok(ventoy_bin_dir)
+                                                    },
                                                         Err(e) => Err(e.to_string()),
                                                     }
                                                 });

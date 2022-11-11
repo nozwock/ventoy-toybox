@@ -61,7 +61,7 @@ where
             cmd_name,
             path.as_ref()
                 .to_str()
-                .ok_or(anyhow!("path is not valid unicode"))?,
+                .ok_or_else(|| anyhow!("path is not valid unicode"))?,
             err.to_string()
         )),
     }
@@ -91,9 +91,9 @@ where
     let pwd = string_to_pcstr(
         path.as_ref()
             .parent()
-            .ok_or(anyhow!("root can't have a parent"))?
+            .ok_or_else(|| anyhow!("root can't have a parent"))?
             .to_str()
-            .ok_or(anyhow!("failed to convert path to string"))?,
+            .ok_or_else(|| anyhow!("failed to convert path to string"))?,
     );
 
     let result;
