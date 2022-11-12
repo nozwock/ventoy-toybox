@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
             "msvc" => {}
             _ => panic!("unsupported env"),
         };
-        res.set_icon("assets/icon.ico");
+        res.set_icon("assets/ferris.ico");
         res.compile()?;
     }
     Ok(())
