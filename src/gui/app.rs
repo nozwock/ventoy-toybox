@@ -23,7 +23,7 @@ pub struct App {
     ventoy_update_pkg_dir: Option<ehttp::Result<PathBuf>>,
     ventoy_update_pkg_name: Option<String>,
 
-    ventoy_bin_path: Option<Result<PathBuf, String>>,
+    ventoy_bin_path: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -420,7 +420,7 @@ impl eframe::App for App {
                         }
                         VentoyUpdateFrames::Done => {
                             if self.ventoy_bin_path.is_none() {
-                                self.ventoy_bin_path = dbg!(Some(
+                                self.ventoy_bin_path = dbg!(
                                     utils::find_file(
                                         self.ventoy_update_pkg_dir
                                             .as_ref()
@@ -430,8 +430,7 @@ impl eframe::App for App {
                                             .as_path(),
                                         update::ventoy_bin_name(),
                                     )
-                                    .map_err(|e| e.to_string())
-                                ));
+                                );
                             }
 
                             ui.vertical_centered(|ui| {
@@ -450,8 +449,6 @@ impl eframe::App for App {
                                         self.ventoy_bin_path
                                             .as_ref()
                                             .unwrap()
-                                            .as_ref()
-                                            .unwrap()
                                             .parent()
                                             .unwrap(),
                                     )
@@ -464,8 +461,6 @@ impl eframe::App for App {
                                 {
                                     let ventoy_bin_path = dbg!(self
                                         .ventoy_bin_path
-                                        .as_ref()
-                                        .unwrap()
                                         .as_ref()
                                         .unwrap());
                                     #[cfg(windows)]

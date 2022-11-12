@@ -24,7 +24,7 @@ where
     P: AsRef<Path>,
 {
     if resp.ok {
-        let mut file = fs::File::create(dest_file)?; // thread will panic if not file
+        let mut file = fs::File::create(dest_file)?;
         return Ok(file.write_all(&resp.bytes)?);
     }
     Err(anyhow!(

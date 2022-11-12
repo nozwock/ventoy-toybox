@@ -1,5 +1,5 @@
 use std::{
-    fs, io,
+    fs,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -16,26 +16,23 @@ pub struct FeedsItem {
     pub date: String,
 }
 
-pub fn find_file<P>(path: P, fname: &str) -> io::Result<PathBuf>
+pub fn find_file<P>(path: P, fname: &str) -> Option<PathBuf>
 where
     P: AsRef<Path>,
 {
     if path.as_ref().is_dir() {
-        for entry in fs::read_dir(path)? {
-            let entry = entry?.path();
+        for entry in fs::read_dir(path).ok()? {
+            let entry = entry.ok()?.path();
             if entry.is_dir() {
-                if let Ok(file) = find_file(entry.as_path(), fname) {
-                    return Ok(file);
+                if let Some(file) = find_file(entry.as_path(), fname) {
+                    return Some(file);
                 };
             } else if entry.is_file() && entry.ends_with(fname) {
-                return Ok(entry);
+                return Some(entry);
             }
         }
     }
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        format!("couldn't find {}", fname),
-    ))
+    None
 }
 
 pub fn open_in_explorer<P>(path: P) -> anyhow::Result<()>
@@ -104,6 +101,6 @@ where
 
     match result.0 {
         x if x > 32 => Ok(()),
-        _ => Err(anyhow!("Admin privileges denied!")),
+        _ => Err(anyhow!("admin privileges denied!")),
     }
 }
