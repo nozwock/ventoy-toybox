@@ -11,7 +11,7 @@ fn main() {
         initial_window_size: Some(vec2(700.0, 500.0)),
         min_window_size: Some(vec2(500.0, 250.0)),
         #[cfg(feature = "app-icon")]
-        icon_data: Some(u8slice_to_icon_data(defines::APP_ICON).unwrap()),
+        icon_data: Some(raw_to_icon_data(defines::APP_ICON).unwrap()),
         ..Default::default()
     };
     eframe::run_native(
@@ -22,9 +22,9 @@ fn main() {
 }
 
 #[cfg(feature = "app-icon")]
-fn u8slice_to_icon_data(buf: &[u8]) -> image::ImageResult<eframe::IconData> {
+fn raw_to_icon_data(raw: &[u8]) -> image::ImageResult<eframe::IconData> {
     let (icon_rgba, icon_width, icon_height) = {
-        let icon = image::load_from_memory(buf)?.to_rgba8();
+        let icon = image::load_from_memory(raw)?.to_rgba8();
         let (width, height) = icon.dimensions();
         (icon.into_raw(), width, height)
     };
