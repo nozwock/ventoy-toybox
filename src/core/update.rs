@@ -66,3 +66,20 @@ pub const fn ventoy_bin_name() -> &'static str {
         "VentoyGUI.x86_64"
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn github_release_api() {
+        let res = ureq::get("https://api.github.com/repos/ventoy/Ventoy/releases/latest")
+            .call()
+            .expect("failed to get a response");
+        dbg!(serde_json::from_str::<Release>(
+            &res.into_string()
+                .expect("failed to get response body as string")
+        )
+        .expect("failed to deserialize"));
+    }
+}

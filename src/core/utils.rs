@@ -104,3 +104,25 @@ where
         _ => Err(anyhow!("admin privileges denied!")),
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use fs::File;
+    use tempdir::TempDir;
+
+    #[test]
+    fn file_found() {
+        let tmpdir = TempDir::new("test").unwrap();
+        let file_name = "some.file";
+        File::create(tmpdir.path().join(file_name)).unwrap();
+        find_file(tmpdir.path(), file_name).expect("failed to find the file");
+    }
+
+    #[test]
+    fn file_not_found() {
+        let tmpdir = TempDir::new("test").unwrap();
+        File::create(tmpdir.path().join("some.file")).unwrap();
+        assert_eq!(find_file(tmpdir.path(), "wrong.file"), None);
+    }
+}
