@@ -173,7 +173,7 @@ impl eframe::App for App {
                 }
                 sender.send(release_feeds);
                 ctx.request_repaint();
-            }) ;
+            });
             promise
         });
 
@@ -503,16 +503,18 @@ impl eframe::App for App {
                             );
                         }
                         VentoyUpdateFrames::Failed => {
-                            ui.label(
-                                RichText::new(
-                                    self.ventoy_update_pkg_dir
-                                        .as_ref()
-                                        .unwrap()
-                                        .as_ref()
-                                        .unwrap_err(),
-                                )
-                                .color(egui::Color32::LIGHT_RED),
-                            );
+                            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                                ui.label(RichText::new("Error occurred!").strong().italics());
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                                    if ui.button("🔃").clicked() {
+                                        self.promise.ventoy_update_pkg = None;
+                                        self.frame.ventoy_update = VentoyUpdateFrames::Downloading;
+                                    }
+                                });
+                            });
+                            ui.separator();
+                            // ! why why rustfmt why
+                            ui.label(RichText::new(self.ventoy_update_pkg_dir.as_ref().unwrap().as_ref().unwrap_err()).color(egui::Color32::LIGHT_RED));
                         }
                     },
                 },
