@@ -4,14 +4,14 @@ bin_name := "ventoy-toybox"
 # have to hardcode it for now
 version := "0.3.1"
 target_name := replace(bin_name, "-", "_") + "-" + version + "-amd64"
-dist_dir := "./target"
+dist_dir := "./target/dist"
 
 # build for linux & win64 on a linux host
 default: _pre-build build-linux build-win _post-build
 
 _pre-build:
     mkdir -p {{dist_dir}}
-    rm -f {{dist_dir}}/{{replace(bin_name, "-", "_")}}-*
+    rm -f {{dist_dir}}/{{replace(bin_name, "-", "_")}}-{{version}}*
 
 build-host:
     cargo b --release
