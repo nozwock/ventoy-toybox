@@ -36,6 +36,10 @@ cd ventoy-toybox
 cargo build --release
 ```
 
+## Known Issues
+
+- Scaling issues on x11 (too big!)
+
 ## FAQs
 1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
     - Well...you wouldn't have this blazingly fast feature packed app then, would you? haha..ha..hah...
