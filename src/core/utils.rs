@@ -120,9 +120,10 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "failed to find the file")]
     fn file_not_found() {
         let tmpdir = TempDir::new("test").unwrap();
         File::create(tmpdir.path().join("some.file")).unwrap();
-        assert_eq!(find_file(tmpdir.path(), "wrong.file"), None);
+        find_file(tmpdir.path(), "wrong.file").unwrap_or_else(|| panic!("failed to find the file"));
     }
 }
