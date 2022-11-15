@@ -38,7 +38,7 @@ cargo build --release
 
 ## Known Issues
 
-- Scaling issues on x11 (too big!)
+- Scaling issues on x11, UI being too big (atleast on KDE Plasma)
 
 ## FAQs
 1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
