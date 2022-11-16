@@ -1,4 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     core::{update, utils, utils::FeedsItem},
@@ -24,15 +27,20 @@ pub struct App {
     filter_group_by_combobox_idx: usize,
 
     // cloned states of some promises
-    ventoy_update_pkg_dir: Option<ehttp::Result<PathBuf>>,
-    ventoy_update_pkg_name: Option<String>,
-
-    ventoy_bin_path: Option<PathBuf>,
+    ventoy_update_dir: Option<Result<PathBuf, String>>,
+    ventoy_update_bin: Option<PathBuf>,
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 struct AppCache {
     release_feeds: Vec<FeedsItem>,
+    ventoy_update_pkg: Option<ReleasePkg>
+}
+
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
+struct ReleasePkg {
+    version: String,
+    path: PathBuf
 }
 
 #[derive(Debug, PartialEq, Default)]
@@ -51,7 +59,7 @@ struct AppFrames {
 struct AppPromises {
     release_feeds: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
     ventoy_release_info: Option<Promise<ehttp::Result<update::Release>>>,
-    ventoy_update_pkg: Option<Promise<ehttp::Result<PathBuf>>>,
+    ventoy_update_pkg: Option<Promise<ehttp::Result<(PathBuf, ReleasePkg)>>>,
 }
 
 #[derive(Default)]
@@ -74,7 +82,14 @@ impl App {
         }
 
         // Setup app cache
-        let cache: AppCache = confy::load_path(defines::app_cache_path()).unwrap_or_default();
+        let mut cache: AppCache = confy::load_path(defines::app_cache_path()).unwrap_or_default();
+        let cached_pkg_path = cache.ventoy_update_pkg.unwrap_or_default();
+        cache.ventoy_update_pkg = if cached_pkg_path.path.is_file() {
+            Some(cached_pkg_path)
+        } else {
+            None
+        };
+        dbg!(&cache.ventoy_update_pkg);
 
         // Set custom font styles for the app
         configure_fonts(&cc.egui_ctx);
@@ -171,6 +186,7 @@ impl eframe::App for App {
         let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| {
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
+            // Use cache if exists
             if !self.cache.release_feeds.is_empty() {
                 sender.send(Ok(self.cache.release_feeds.clone()));
                 ctx.request_repaint();
@@ -225,6 +241,8 @@ impl eframe::App for App {
             Some(Ok(feeds)) => {
                 // * this branch will continue only once and i.e. on the first frame
                 if self.cache.release_feeds.is_empty() {
+                    // ! issue here
+                    // TODO: fix this conditional
                     self.cache.release_feeds = feeds.clone();
                     let mut group_duplicates: Vec<String> = Vec::new();
                     let mut groups: Vec<String> = self
@@ -332,87 +350,102 @@ impl eframe::App for App {
                             });
                         }
                         VentoyUpdateFrames::Downloading => {
-                            let ventoy_release_pkg_promise =
+
+                            fn extract_pkg<P: AsRef<Path>>(pkg_path: P, dest_dir: P) -> Result<(), String> {
+                                #[cfg(windows)]
+                                {
+                                    update::extract_zip(
+                                        pkg_path,
+                                        dest_dir,
+                                    ).map_err(|e| e.to_string())?;
+                                }
+                                #[cfg(target_os = "linux")]
+                                {
+                                    update::extract_targz(
+                                        pkg_path,
+                                        dest_dir,
+                                    ).map_err(|e| e.to_string())?;
+                                }
+                                Ok(())
+                            }
+
+                            let ventoy_update_pkg_promise =
                                 self.promise.ventoy_update_pkg.get_or_insert_with(|| {
                                     let ctx = ctx.clone();
                                     let (sender, promise) = Promise::new();
-
-                                    let native_os: &str;
-                                    let mut pkg_idx: Option<usize> = None;
-                                    #[cfg(windows)]
-                                    {
-                                        native_os = "windows";
-                                    }
-                                    #[cfg(target_os = "linux")]
-                                    {
-                                        native_os = "linux";
-                                    }
-
-                                    for (idx, asset) in release.assets.iter().enumerate() {
-                                        if asset.name.to_lowercase().contains(native_os) {
-                                            pkg_idx = Some(idx);
-                                            break;
-                                        }
-                                    }
-
-                                    match pkg_idx {
-                                        Some(idx) => {
-                                            let pkg_name =
-                                                release.assets[idx].name.to_string();
-                                            self.ventoy_update_pkg_name = Some(pkg_name.clone());
-                                            let request = ehttp::Request::get(
-                                                release
-                                                    .assets[idx]
-                                                    .download_url
-                                                    .clone(),
-                                            );
-
-                                            // ! rust fmt dead here aswell ???
-                                            let mut pkg_path =
-                                                crate::defines::app_cache_dir().expect("expect to have a os-wide cache dir");
-                                            let mut ventoy_bin_dir = pkg_path.clone();
-                                            pkg_path.push(pkg_name);
-                                            ventoy_bin_dir.push(format!(
-                                                "ventoy-{}-{}",
-                                                release.tag_name, native_os
-                                            ));
+                                    
+                                    let native_os = std::env::consts::OS;
+                                    
+                                    // Use cache if exists
+                                    if self.cache.ventoy_update_pkg.is_some() {
+                                        let cached_pkg = self.cache.ventoy_update_pkg.as_ref().unwrap();
+                                        if release.tag_name.contains(&cached_pkg.version) {
+                                            let ventoy_bin_dir = cached_pkg.path.parent().unwrap()
+                                                .join(format!("ventoy-{}-{}", release.tag_name, native_os));
                                             fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
-                                            ehttp::fetch(request, move |response| {
-                                                let pkg_status = response.and_then(|response| {
-                                                    // ! wow...what bootiphul code...rustfmt...aarghaagaaargh
-                                                    match update::write_resp_to_file(response, &pkg_path)
-                                                    {
-                                                        Ok(_) => {
-                                                    #[cfg(windows)]
-                                                    {
-                                                        update::extract_zip(
-                                                            &pkg_path,
-                                                            &ventoy_bin_dir,
-                                                        ).map_err(|e| e.to_string())?;
-                                                    }
-                                                    #[cfg(target_os = "linux")]
-                                                    {
-                                                        update::extract_targz(
-                                                            &pkg_path,
-                                                            &ventoy_bin_dir,
-                                                        ).map_err(|e| e.to_string())?;
-                                                    }
-                                                    Ok(ventoy_bin_dir)
-                                                    },
-                                                        Err(e) => Err(e.to_string()),
-                                                    }
-                                                });
-                                                dbg!(&pkg_status);
-                                                sender.send(pkg_status);
-                                                ctx.request_repaint();
-                                            });
-                                        }
-                                        None => {
-                                            sender.send(Err(
-                                                "failed to find correct pkg for native os"
-                                                    .to_string(),
-                                            ));
+                                            let send = extract_pkg(cached_pkg.path.as_path(), ventoy_bin_dir.as_path())
+                                                .map(|_| (ventoy_bin_dir, cached_pkg.clone()));
+                                            sender.send(send);
                                             ctx.request_repaint();
+                                        }
+                                    } else {
+                                        let mut pkg_idx: Option<usize> = None;
+
+                                        for (idx, asset) in release.assets.iter().enumerate() {
+                                            if asset.name.to_lowercase().contains(native_os) {
+                                                pkg_idx = Some(idx);
+                                                break;
+                                            }
+                                        }
+
+                                        match pkg_idx {
+                                            Some(idx) => {
+                                                let pkg_name =
+                                                    release.assets[idx].name.to_string();
+                                                let request = ehttp::Request::get(
+                                                    release
+                                                        .assets[idx]
+                                                        .download_url
+                                                        .clone(),
+                                                );
+
+                                                // ! rust fmt dead here aswell ???
+                                                let mut pkg_path =
+                                                    crate::defines::app_cache_dir().expect("expect to have a os-wide cache dir");
+                                                let mut ventoy_bin_dir = pkg_path.clone();
+                                                pkg_path.push(pkg_name);
+
+                                                ventoy_bin_dir.push(format!(
+                                                    "ventoy-{}-{}",
+                                                    release.tag_name, native_os
+                                                ));
+                                                fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
+
+
+                                                ehttp::fetch(request, move |response| {
+                                                    let pkg_status = response.and_then(|response| {
+                                                        // ! wow...what bootiphul code...rustfmt...aarghaagaaargh
+                                                        match update::write_resp_to_file(response, &pkg_path)
+                                                        {
+                                                            Ok(_) => {
+                                                                extract_pkg(&pkg_path, &ventoy_bin_dir)?;
+                                                                Ok((ventoy_bin_dir, ReleasePkg { version: release.tag_name, path: pkg_path}))
+                                                            },
+                                                            Err(e) => Err(e.to_string()),
+                                                        }
+                                                    });
+                                                    dbg!(&pkg_status);
+                                                    sender.send(pkg_status);
+                                                    ctx.request_repaint();
+                                                });
+                                            }
+                                            None => {
+                                                sender.send(Err(
+                                                    "failed to find correct pkg for native os"
+                                                        .to_string(),
+                                                ));
+                                                ctx.request_repaint();
+                                            }
                                         }
                                     }
                                     promise
@@ -425,23 +458,27 @@ impl eframe::App for App {
                                 ui.add(egui::Spinner::new().size(32.));
                             });
 
-                            match ventoy_release_pkg_promise.ready() {
+                            match ventoy_update_pkg_promise.ready() {
                                 None => (),
                                 Some(Err(err)) => {
-                                    self.ventoy_update_pkg_dir = Some(Err(err.to_string()));
+                                    self.ventoy_update_dir = Some(Err(err.to_string()));
                                     self.frame.ventoy_update = VentoyUpdateFrames::Failed;
                                 }
-                                Some(Ok(dir)) => {
-                                    self.ventoy_update_pkg_dir = Some(Ok(dir.clone()));
+                                Some(Ok(pkg)) => {
+                                    self.ventoy_update_dir = Some(Ok(pkg.0.clone()));
+
+                                    // setup cache
+                                    self.cache.ventoy_update_pkg = Some(ReleasePkg { version: pkg.1.version.clone(), path: pkg.1.path.clone() });
+
                                     self.frame.ventoy_update = VentoyUpdateFrames::Done;
                                 }
                             }
                         }
                         VentoyUpdateFrames::Done => {
-                            if self.ventoy_bin_path.is_none() {
-                                self.ventoy_bin_path = dbg!(
+                            if self.ventoy_update_bin.is_none() {
+                                self.ventoy_update_bin = dbg!(
                                     utils::find_file(
-                                        self.ventoy_update_pkg_dir
+                                        self.ventoy_update_dir
                                             .as_ref()
                                             .expect("pkg must exist if reached `Done` frame arm, i.e. bin must also exist")
                                             .as_ref()
@@ -465,7 +502,8 @@ impl eframe::App for App {
                                     .clicked()
                                 {
                                     utils::open_in_explorer(
-                                        self.ventoy_bin_path
+                                        self
+                                            .ventoy_update_bin
                                             .as_ref()
                                             .unwrap()
                                             .parent()
@@ -479,7 +517,7 @@ impl eframe::App for App {
                                     .clicked()
                                 {
                                     let ventoy_bin_path = dbg!(self
-                                        .ventoy_bin_path
+                                        .ventoy_update_bin
                                         .as_ref()
                                         .unwrap());
                                     #[cfg(windows)]
@@ -533,7 +571,7 @@ impl eframe::App for App {
                             });
                             ui.separator();
                             // ! why why rustfmt why
-                            ui.label(RichText::new(self.ventoy_update_pkg_dir.as_ref().unwrap().as_ref().unwrap_err()).color(egui::Color32::LIGHT_RED));
+                            ui.label(RichText::new(self.ventoy_update_dir.as_ref().unwrap().as_ref().unwrap_err()).color(egui::Color32::LIGHT_RED));
                         }
                     },
                 },

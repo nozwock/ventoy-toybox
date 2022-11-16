@@ -11,7 +11,5 @@ pub fn app_cache_dir() -> Option<PathBuf> {
 }
 
 pub fn app_cache_path() -> PathBuf {
-    app_cache_dir()
-        .unwrap_or(PathBuf::default())
-        .join("cache.ron")
+    app_cache_dir().unwrap_or_default().join("cache.ron")
 }
