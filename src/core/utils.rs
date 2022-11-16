@@ -5,9 +5,9 @@ use std::{
 };
 
 use anyhow::anyhow;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FeedsItem {
     pub group: String,
     pub name: String,

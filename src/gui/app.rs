@@ -1,14 +1,18 @@
 use std::{fs, path::PathBuf};
 
-use crate::core::{update, utils, utils::FeedsItem};
+use crate::{
+    core::{update, utils, utils::FeedsItem},
+    defines,
+};
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
+use serde::{Deserialize, Serialize};
 
 use super::{PromptDialog, VentoyUpdateFrames};
 
 #[derive(Default)]
 pub struct App {
-    config: AppConfig,
+    cache: AppCache,
     page: AppPages,
     frame: AppFrames,
     promise: AppPromises,
@@ -26,9 +30,9 @@ pub struct App {
     ventoy_bin_path: Option<PathBuf>,
 }
 
-#[derive(Default)]
-pub struct AppConfig {
-    pub release_feeds: Vec<FeedsItem>,
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
+struct AppCache {
+    release_feeds: Vec<FeedsItem>,
 }
 
 #[derive(Debug, PartialEq, Default)]
@@ -69,10 +73,14 @@ impl App {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
 
+        // Setup app cache
+        let cache: AppCache = confy::load_path(defines::app_cache_path()).unwrap_or_default();
+
         // Set custom font styles for the app
         configure_fonts(&cc.egui_ctx);
 
         Self {
+            cache,
             filter_group_by_combobox: vec!["all".to_string()],
             prompt: AppPromptDialogs {
                 ventoy_launch_err: PromptDialog {
@@ -95,7 +103,7 @@ impl App {
     fn draw_release_cards(&self, ui: &mut egui::Ui) {
         let group_name = &self.filter_group_by_combobox[self.filter_group_by_combobox_idx];
         let entry_text = &self.filter_release_entry_box;
-        for item in &self.config.release_feeds {
+        for item in &self.cache.release_feeds {
             if (group_name == "all" || group_name == &item.group)
                 && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
             {
@@ -148,6 +156,11 @@ impl eframe::App for App {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // Store cache on exit
+        _ = dbg!(confy::store_path(defines::app_cache_path(), &self.cache));
+    }
+
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -158,22 +171,28 @@ impl eframe::App for App {
         let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| {
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
-            let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
-            ehttp::fetch(request, move |response| {
-                let release_feeds  = response.and_then(|response| {
-                    // ! had to manually format this long line...why's fmt not working?????
-                    serde_json::from_str::<Vec<FeedsItem>>(response.text().ok_or(format!(
-                        "{} {}: failed to get valid utf8 text from response\n{}",
-                        response.status, response.status_text, response.url
-                    ))?)
-                    .map_err(|e| e.to_string())
-                });
-                if release_feeds.is_err() {
-                    dbg!(&release_feeds);
-                }
-                sender.send(release_feeds);
+            if !self.cache.release_feeds.is_empty() {
+                sender.send(Ok(self.cache.release_feeds.clone()));
                 ctx.request_repaint();
-            });
+            }
+            else {
+                let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
+                ehttp::fetch(request, move |response| {
+                    let release_feeds  = response.and_then(|response| {
+                        // ! had to manually format this long line...why's fmt not working?????
+                        serde_json::from_str::<Vec<FeedsItem>>(response.text().ok_or(format!(
+                            "{} {}: failed to get valid utf8 text from response\n{}",
+                            response.status, response.status_text, response.url
+                        ))?)
+                        .map_err(|e| e.to_string())
+                    });
+                    if release_feeds.is_err() {
+                        dbg!(&release_feeds);
+                    }
+                    sender.send(release_feeds);
+                    ctx.request_repaint();
+                });
+            };
             promise
         });
 
@@ -205,11 +224,11 @@ impl eframe::App for App {
             Some(Err(err)) => Some(Err(err.clone())),
             Some(Ok(feeds)) => {
                 // * this branch will continue only once and i.e. on the first frame
-                if self.config.release_feeds.is_empty() {
-                    self.config.release_feeds = feeds.clone();
+                if self.cache.release_feeds.is_empty() {
+                    self.cache.release_feeds = feeds.clone();
                     let mut group_duplicates: Vec<String> = Vec::new();
                     let mut groups: Vec<String> = self
-                        .config
+                        .cache
                         .release_feeds
                         .clone()
                         .into_iter()
