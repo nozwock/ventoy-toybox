@@ -377,9 +377,8 @@ impl eframe::App for App {
                                     let native_os = std::env::consts::OS;
                                     
                                     // Use cache if exists
-                                    if self.cache.ventoy_update_pkg.is_some() {
-                                        let cached_pkg = self.cache.ventoy_update_pkg.as_ref().unwrap();
-                                        if release.tag_name.contains(&cached_pkg.version) {
+                                    let cached_pkg = self.cache.ventoy_update_pkg.as_ref().unwrap();
+                                    if self.cache.ventoy_update_pkg.is_some() && release.tag_name.contains(&cached_pkg.version) {
                                             let ventoy_bin_dir = cached_pkg.path.parent().unwrap()
                                                 .join(format!("ventoy-{}-{}", release.tag_name, native_os));
                                             fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
@@ -387,7 +386,6 @@ impl eframe::App for App {
                                                 .map(|_| (ventoy_bin_dir, cached_pkg.clone()));
                                             sender.send(send);
                                             ctx.request_repaint();
-                                        }
                                     } else {
                                         let mut pkg_idx: Option<usize> = None;
 
