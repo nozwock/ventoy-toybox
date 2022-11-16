@@ -193,7 +193,9 @@ impl eframe::App for App {
                 ctx.request_repaint();
             }
             else {
-                let request = ehttp::Request::get("https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json");
+                let request = ehttp::Request::get(
+                    "https://github.com/nozwock/ventoy-toybox-feed/releases/download/feeds/releases.json"
+                );
                 ehttp::fetch(request, move |response| {
                     let release_feeds  = response.and_then(|response| {
                         // ! had to manually format this long line...why's fmt not working?????

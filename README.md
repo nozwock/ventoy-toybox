@@ -1,5 +1,7 @@
 # Ventoy Toybox
 
+[![Latest Version](https://img.shields.io/github/v/tag/nozwock/ventoy-toybox.svg?label=Version&sort=semver)](https://github.com/nozwock/ventoy-toybox/releases)
+
 A desktop application consisting of some helper utilities for [ventoy][ventoy]
 
 > Download latest release [**`here!`**][release]
@@ -8,7 +10,7 @@ A desktop application consisting of some helper utilities for [ventoy][ventoy]
 
 <img src="https://user-images.githubusercontent.com/57829219/198823849-7da17229-2c6c-4d57-a745-0b6ec48db12a.png" alt="preview image" width="512">
 
-**NOTE:** Prebuilt binaries are available for `amd64` Linux and Bindows
+> **NOTE:** Prebuilt binaries are available for `amd64` Linux and Bindows
 
 ## Features
 
@@ -17,9 +19,12 @@ A desktop application consisting of some helper utilities for [ventoy][ventoy]
 - Fetch updates for [ventoy][ventoy]
 - Browse through latest linux distro releases
 - Download linux distro images via torrents
-- Filter distros by name or torrent file name
+- Filter releases by distro or torrent file name
 - Easy to use
 - Messy code
+- Even more messier code courtesy of `rustfmt` refusing to work
+
+> Release feeds are handled by [nozwock/ventoy-toybox-feed](https://github.com/nozwock/ventoy-toybox-feed)
 
 ## Usage
 
@@ -54,7 +59,7 @@ cargo build --release
 
 [MIT](https://choosealicense.com/licenses/mit/)
 
-
+<sub>rustfmt work damnit! I desperately need you plz 🥲</sub><br/>
 <sub>don't look at README's revision history...don't...</sub>
 
 [ventoy]: https://github.com/ventoy/Ventoy
