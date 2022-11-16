@@ -29,6 +29,7 @@ pub struct App {
     // cloned states of some promises
     ventoy_update_dir: Option<Result<PathBuf, String>>,
     ventoy_update_bin: Option<PathBuf>,
+    release_feeds_processed: bool
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
@@ -240,9 +241,7 @@ impl eframe::App for App {
             Some(Err(err)) => Some(Err(err.clone())),
             Some(Ok(feeds)) => {
                 // * this branch will continue only once and i.e. on the first frame
-                if self.cache.release_feeds.is_empty() {
-                    // ! issue here
-                    // TODO: fix this conditional
+                if !self.release_feeds_processed {
                     self.cache.release_feeds = feeds.clone();
                     let mut group_duplicates: Vec<String> = Vec::new();
                     let mut groups: Vec<String> = self
@@ -253,8 +252,8 @@ impl eframe::App for App {
                         .map(|x| x.group)
                         // filtering out duplicate groups
                         .filter(|x| {
-                            for t in &group_duplicates {
-                                if t == x {
+                            for dup in &group_duplicates {
+                                if dup == x {
                                     return false;
                                 }
                             }
@@ -265,6 +264,7 @@ impl eframe::App for App {
                     // 'all' the default group
                     groups.insert(0, "all".to_string());
                     self.filter_group_by_combobox = groups;
+                    self.release_feeds_processed = true;
                 }
                 Some(Ok(()))
             }
