@@ -21,6 +21,12 @@ A desktop application consisting of some helper utilities for [ventoy][ventoy]
 - Easy to use
 - Messy code
 
+## Usage
+
+> Starting `v0.4.0`, release feeds and ventoy update packages are cached on disk. <br/>
+
+- To get latest release feeds you have to press the refresh button in the `Browse OS Releases` tab otherwise the on-disk cache will be used.
+
 ## Building
 
 Clone the repository using git and change to the local repository directory:
@@ -38,7 +44,7 @@ cargo build --release
 
 ## Known Issues
 
-- Scaling issues on x11, UI being too big (atleast on KDE Plasma)
+- Scaling issues on x11 KDE Plasma; UI being too big
 
 ## FAQs
 1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
