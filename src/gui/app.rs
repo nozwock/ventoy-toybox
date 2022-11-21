@@ -614,6 +614,8 @@ impl eframe::App for App {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                             if ui.button("🔃").clicked() {
                                 self.promise.release_feeds = None;
+                                self.cache.release_feeds = Default::default();
+                                self.release_feeds_processed = false;
                             }
                         });
                     });
