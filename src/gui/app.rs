@@ -56,11 +56,13 @@ struct AppFrames {
     ventoy_update: VentoyUpdateFrames,
 }
 
+type ReqPromise<T> = Promise<ehttp::Result<T>>;
+
 #[derive(Default)]
 struct AppPromises {
-    release_feeds: Option<Promise<ehttp::Result<Vec<FeedsItem>>>>,
-    ventoy_release_info: Option<Promise<ehttp::Result<update::Release>>>,
-    ventoy_update_pkg: Option<Promise<ehttp::Result<(PathBuf, ReleasePkg)>>>,
+    release_feeds: Option<ReqPromise<Vec<FeedsItem>>>,
+    ventoy_release_info: Option<ReqPromise<update::Release>>,
+    ventoy_update_pkg: Option<ReqPromise<(PathBuf, ReleasePkg)>>,
 }
 
 #[derive(Default)]
@@ -115,54 +117,6 @@ impl App {
             ..Default::default()
         }
     }
-
-    fn draw_release_cards(&self, ui: &mut egui::Ui) {
-        let group_name = &self.filter_group_by_combobox[self.filter_group_by_combobox_idx];
-        let entry_text = &self.filter_release_entry_box;
-        for item in &self.cache.release_feeds {
-            if (group_name == "all" || group_name == &item.group)
-                && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
-            {
-                const PADDING: f32 = 3.;
-                ui.add_space(PADDING);
-                ui.horizontal(|ui| {
-                    ui.label(&item.name);
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                        ui.style_mut().visuals.hyperlink_color =
-                            egui::Color32::from_rgb(0, 255, 255);
-                        ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
-                        ui.style_mut().visuals.hyperlink_color =
-                            egui::Color32::from_rgb(236, 135, 10);
-                        ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
-                    });
-                });
-                ui.add_space(PADDING);
-                ui.separator();
-            }
-        }
-    }
-
-    fn draw_topbar(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.page, AppPages::VentoyUpdate, "🕫 Ventoy Updates");
-            ui.selectable_value(
-                &mut self.page,
-                AppPages::ReleaseBrowse,
-                "🔍 Browse OS Releases",
-            );
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                egui::warn_if_debug_build(ui);
-                if !cfg!(debug_assertions) {
-                    ui.label(
-                        RichText::new(format!("v{}", env!("CARGO_PKG_VERSION")))
-                            .color(egui::Color32::LIGHT_GREEN),
-                    );
-                }
-                ui.hyperlink_to("", "https://github.com/nozwock/ventoy-toybox");
-            });
-        });
-        ui.separator();
-    }
 }
 
 impl eframe::App for App {
@@ -174,22 +128,36 @@ impl eframe::App for App {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // Store cache on exit
+        if let Some(promise) = &self.promise.release_feeds {
+            if let Ok(feeds) = promise.block_until_ready() {
+                self.cache.release_feeds =feeds.clone(); // ! thanks rustfmt for not working
+            }
+        };
         _ = dbg!(confy::store_path(defines::app_cache_path(), &self.cache));
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // buncha promises ahead~
-        // I hate the way this is being done...but ok T~T
+        let Self { cache, 
+            page, 
+            frame, 
+            promise, 
+            prompt, 
+            filter_release_entry_box, 
+            filter_group_by_combobox, 
+            filter_group_by_combobox_idx, 
+            ventoy_update_dir, 
+            ventoy_update_bin, 
+            release_feeds_processed: groups_processed_flag } = self;
 
         // ! why's rust analyzer dead for this chunk of code. What's going on with it?
-        let release_feeds_promise = self.promise.release_feeds.get_or_insert_with(|| {
+        let release_feeds_promise = promise.release_feeds.get_or_insert_with(|| {
             let ctx = ctx.clone();
             let (sender, promise) = Promise::new();
             // Use cache if exists
-            if !self.cache.release_feeds.is_empty() {
-                sender.send(Ok(self.cache.release_feeds.clone()));
+            if !cache.release_feeds.is_empty() {
+                sender.send(Ok(cache.release_feeds.clone()));
                 ctx.request_repaint();
             }
             else {
@@ -215,8 +183,8 @@ impl eframe::App for App {
             promise
         });
 
-        let ventoy_release_info_promise =
-            self.promise.ventoy_release_info.get_or_insert_with(|| {
+        let _ventoy_release_info_promise =
+            promise.ventoy_release_info.get_or_insert_with(|| {
                 let ctx = ctx.clone();
                 let (sender, promise) = Promise::new();
                 let request = ehttp::Request::get(
@@ -237,45 +205,29 @@ impl eframe::App for App {
                 promise
             });
 
-        // * had to do this at the start...bcz I can't figure out how to solve that multiple borrow issue atm ;-[
-        let release_feeds_status = match release_feeds_promise.ready() {
-            None => None,
-            Some(Err(err)) => Some(Err(err.clone())),
-            Some(Ok(feeds)) => {
-                // * this branch will continue only once and i.e. on the first frame
-                if !self.release_feeds_processed {
-                    self.cache.release_feeds = feeds.clone();
-                    let mut group_duplicates: Vec<String> = Vec::new();
-                    let mut groups: Vec<String> = self
-                        .cache
-                        .release_feeds
-                        .clone()
-                        .into_iter()
-                        .map(|x| x.group)
-                        // filtering out duplicate groups
-                        .filter(|x| {
-                            for dup in &group_duplicates {
-                                if dup == x {
-                                    return false;
-                                }
+        if let Some(Ok(feeds)) = release_feeds_promise.ready() {
+            // * run only once at first frame
+            if !*groups_processed_flag {
+                let mut group_duplicates = Vec::new();
+                let mut groups = feeds
+                    .iter()
+                    .map(|feed| feed.group.clone())
+                    // filtering out duplicate groups
+                    .filter(|group| {
+                        for dup in &group_duplicates {
+                            if dup == group {
+                                return false;
                             }
-                            group_duplicates.push(x.clone());
-                            true
-                        })
-                        .collect();
-                    // 'all' the default group
-                    groups.insert(0, "all".to_string());
-                    self.filter_group_by_combobox = groups;
-                    self.release_feeds_processed = true;
-                }
-                Some(Ok(()))
+                        }
+                        group_duplicates.push(group.clone());
+                        true
+                    })
+                    .collect::<Vec<_>>();
+                // 'all' the default group
+                groups.insert(0, "all".to_string());
+                *filter_group_by_combobox = groups;
+                *groups_processed_flag = true;
             }
-        };
-
-        let ventoy_release_info = match ventoy_release_info_promise.ready() {
-            None => None,
-            Some(Err(err)) => Some(Err(err.clone())),
-            Some(Ok(release)) => Some(Ok(release.clone())),
         };
 
         // ------------------------------
@@ -283,14 +235,35 @@ impl eframe::App for App {
         // ...ya i know this is a mess...
         // ------------------------------
 
-        if let AppPages::ReleaseBrowse = self.page {
+        if let AppPages::ReleaseBrowse = page {
             draw_release_footer(ctx);
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_topbar(ui);
-            match self.page {
-                AppPages::VentoyUpdate => match ventoy_release_info {
+            // * Draw Topbar
+            ui.horizontal(|ui| {
+                ui.selectable_value(page, AppPages::VentoyUpdate, "🕫 Ventoy Updates");
+                ui.selectable_value(
+                    page,
+                    AppPages::ReleaseBrowse,
+                    "🔍 Browse OS Releases",
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    egui::warn_if_debug_build(ui);
+                    if !cfg!(debug_assertions) {
+                        ui.label(
+                            RichText::new(format!("v{}", env!("CARGO_PKG_VERSION")))
+                                .color(egui::Color32::LIGHT_GREEN),
+                        );
+                    }
+                    ui.hyperlink_to("", "https://github.com/nozwock/ventoy-toybox");
+                });
+            });
+            ui.separator();
+            // * <<<<<<<<<< Draw Topbar - END >>>>>>>>>>
+            
+            match page {
+                AppPages::VentoyUpdate => match promise.ventoy_release_info.as_ref().expect("field should be Some type").ready() {
                     None => {
                         ui.vertical_centered_justified(|ui| {
                             ui.add_space((ui.available_height()) / 2. - 54.);
@@ -304,18 +277,19 @@ impl eframe::App for App {
                         });
                     }
                     Some(Err(err)) => {
+                        let err = err.clone(); // ;-(
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
                             ui.label(RichText::new("Error occurred!").strong().italics());
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                                 if ui.button("🔃").clicked() {
-                                self.promise.ventoy_release_info = None;
+                                    promise.ventoy_release_info = None;
                                 }
                             });
                         });
                         ui.separator();
                         ui.label(RichText::new(err).color(egui::Color32::LIGHT_RED));
                     }
-                    Some(Ok(release)) => match self.frame.ventoy_update {
+                    Some(Ok(release)) => match frame.ventoy_update {
                         VentoyUpdateFrames::FoundRelease => {
                             let mut release_msg = egui::text::LayoutJob::default();
                             release_msg.append(
@@ -347,7 +321,7 @@ impl eframe::App for App {
                                 ui.label(release_msg);
                                 ui.add_space(8.);
                                 if ui.button(RichText::new("⮋ Download").size(32.)).clicked() {
-                                    self.frame.ventoy_update = VentoyUpdateFrames::Downloading;
+                                    frame.ventoy_update = VentoyUpdateFrames::Downloading;
                                 }
                             });
                         }
@@ -372,14 +346,14 @@ impl eframe::App for App {
                             }
 
                             let ventoy_update_pkg_promise =
-                                self.promise.ventoy_update_pkg.get_or_insert_with(|| {
+                                promise.ventoy_update_pkg.get_or_insert_with(|| {
                                     let ctx = ctx.clone();
                                     let (sender, promise) = Promise::new();
                                     
                                     let native_os = std::env::consts::OS;
                                     
                                     // Use cache if exists
-                                    let cached_pkg = self.cache.ventoy_update_pkg.as_ref();
+                                    let cached_pkg = cache.ventoy_update_pkg.as_ref();
                                     if cached_pkg.is_some() && release.tag_name.contains(&cached_pkg.unwrap().version) {
                                             let cached_pkg = cached_pkg.unwrap();
                                             let ventoy_bin_dir = cached_pkg.path.parent().unwrap()
@@ -423,6 +397,7 @@ impl eframe::App for App {
                                                 fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
 
 
+                                                let release_tag_name = release.tag_name.clone();
                                                 ehttp::fetch(request, move |response| {
                                                     let pkg_status = response.and_then(|response| {
                                                         // ! wow...what bootiphul code...rustfmt...aarghaagaaargh
@@ -430,7 +405,7 @@ impl eframe::App for App {
                                                         {
                                                             Ok(_) => {
                                                                 extract_pkg(&pkg_path, &ventoy_bin_dir)?;
-                                                                Ok((ventoy_bin_dir, ReleasePkg { version: release.tag_name, path: pkg_path}))
+                                                                Ok((ventoy_bin_dir, ReleasePkg { version: release_tag_name, path: pkg_path}))
                                                             },
                                                             Err(e) => Err(e.to_string()),
                                                         }
@@ -462,24 +437,24 @@ impl eframe::App for App {
                             match ventoy_update_pkg_promise.ready() {
                                 None => (),
                                 Some(Err(err)) => {
-                                    self.ventoy_update_dir = Some(Err(err.to_string()));
-                                    self.frame.ventoy_update = VentoyUpdateFrames::Failed;
+                                    *ventoy_update_dir = Some(Err(err.to_string()));
+                                    frame.ventoy_update = VentoyUpdateFrames::Failed;
                                 }
                                 Some(Ok(pkg)) => {
-                                    self.ventoy_update_dir = Some(Ok(pkg.0.clone()));
+                                    *ventoy_update_dir = Some(Ok(pkg.0.clone()));
 
                                     // setup cache
-                                    self.cache.ventoy_update_pkg = Some(ReleasePkg { version: pkg.1.version.clone(), path: pkg.1.path.clone() });
+                                    cache.ventoy_update_pkg = Some(ReleasePkg { version: pkg.1.version.clone(), path: pkg.1.path.clone() });
 
-                                    self.frame.ventoy_update = VentoyUpdateFrames::Done;
+                                    frame.ventoy_update = VentoyUpdateFrames::Done;
                                 }
                             }
                         }
                         VentoyUpdateFrames::Done => {
-                            if self.ventoy_update_bin.is_none() {
-                                self.ventoy_update_bin = dbg!(
+                            if ventoy_update_bin.is_none() {
+                                *ventoy_update_bin = dbg!(
                                     utils::find_file(
-                                        self.ventoy_update_dir
+                                        ventoy_update_dir
                                             .as_ref()
                                             .expect("pkg must exist if reached `Done` frame arm, i.e. bin must also exist")
                                             .as_ref()
@@ -503,8 +478,7 @@ impl eframe::App for App {
                                     .clicked()
                                 {
                                     utils::open_in_explorer(
-                                        self
-                                            .ventoy_update_bin
+                                            ventoy_update_bin
                                             .as_ref()
                                             .unwrap()
                                             .parent()
@@ -517,20 +491,20 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
-                                    let ventoy_bin_path = dbg!(self
-                                        .ventoy_update_bin
+                                    let ventoy_bin_path = dbg!(
+                                        ventoy_update_bin
                                         .as_ref()
                                         .unwrap());
                                     #[cfg(windows)]
                                     {
                                         match utils::runas_admin(ventoy_bin_path) {
                                             Ok(_) => {
-                                                self.prompt.ventoy_launch_info.visible = true;
-                                                self.prompt.ventoy_launch_err.visible = false;
+                                                prompt.ventoy_launch_info.visible = true;
+                                                prompt.ventoy_launch_err.visible = false;
                                             }
                                             Err(e) => {
-                                                self.prompt.ventoy_launch_err.visible = true;
-                                                self.prompt.ventoy_launch_err.text = e.to_string();
+                                                prompt.ventoy_launch_err.visible = true;
+                                                prompt.ventoy_launch_err.text = e.to_string();
                                             }
                                         };
                                     }
@@ -539,10 +513,10 @@ impl eframe::App for App {
                                         match dbg!(
                                             std::process::Command::new(ventoy_bin_path).spawn()
                                         ) {
-                                            Ok(_) => self.prompt.ventoy_launch_info.visible = true,
+                                            Ok(_) => prompt.ventoy_launch_info.visible = true,
                                             Err(e) => {
-                                                self.prompt.ventoy_launch_err.visible = true;
-                                                self.prompt.ventoy_launch_err.text = e.to_string();
+                                                prompt.ventoy_launch_err.visible = true;
+                                                prompt.ventoy_launch_err.text = e.to_string();
                                             }
                                         }
                                     }
@@ -551,12 +525,12 @@ impl eframe::App for App {
 
                             draw_prompt_dialog(
                                 ctx,
-                                &mut self.prompt.ventoy_launch_err,
+                                &mut prompt.ventoy_launch_err,
                                 egui::Color32::LIGHT_RED,
                             ); // error dialog
                             draw_prompt_dialog(
                                 ctx,
-                                &mut self.prompt.ventoy_launch_info,
+                                &mut prompt.ventoy_launch_info,
                                 egui::Color32::WHITE,
                             );
                         }
@@ -565,21 +539,21 @@ impl eframe::App for App {
                                 ui.label(RichText::new("Error occurred!").strong().italics());
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                                     if ui.button("🔃").clicked() {
-                                        self.promise.ventoy_update_pkg = None;
-                                        self.frame.ventoy_update = VentoyUpdateFrames::Downloading;
+                                        promise.ventoy_update_pkg = None;
+                                        frame.ventoy_update = VentoyUpdateFrames::Downloading;
                                     }
                                 });
                             });
                             ui.separator();
                             // ! why why rustfmt why
-                            ui.label(RichText::new(self.ventoy_update_dir.as_ref().unwrap().as_ref().unwrap_err()).color(egui::Color32::LIGHT_RED));
+                            ui.label(RichText::new(ventoy_update_dir.as_ref().unwrap().as_ref().unwrap_err()).color(egui::Color32::LIGHT_RED));
                         }
                     },
                 },
                 AppPages::ReleaseBrowse => {
                     ui.horizontal(|ui| {
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                            let filter_enabled: bool = match release_feeds_status {
+                            let filter_enabled: bool = match promise.release_feeds.as_ref().expect("field should be Some type").ready() {
                                 Some(Ok(_)) => true,
                                 Some(Err(_)) => false,
                                 None => false,
@@ -590,22 +564,22 @@ impl eframe::App for App {
                                         ui.label("By name:");
                                         ui.add(
                                             egui::TextEdit::singleline(
-                                                &mut self.filter_release_entry_box,
+                                                filter_release_entry_box,
                                             )
                                             .desired_width(120.0),
                                         );
-                                        self.filter_release_entry_box =
-                                            self.filter_release_entry_box.to_lowercase();
+                                        *filter_release_entry_box =
+                                            filter_release_entry_box.to_lowercase();
                                         if ui.button("ｘ").clicked() {
-                                            self.filter_release_entry_box.clear();
+                                            filter_release_entry_box.clear();
                                         }
 
                                         egui::ComboBox::from_id_source("group-combobox")
                                             .show_index(
                                                 ui,
-                                                &mut self.filter_group_by_combobox_idx,
-                                                self.filter_group_by_combobox.len(),
-                                                |idx| self.filter_group_by_combobox[idx].clone(),
+                                                filter_group_by_combobox_idx,
+                                                filter_group_by_combobox.len(),
+                                                |idx| (*filter_group_by_combobox)[idx].clone(),
                                             );
                                     });
                                 });
@@ -613,9 +587,9 @@ impl eframe::App for App {
                         });
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                             if ui.button("🔃").clicked() {
-                                self.promise.release_feeds = None;
-                                self.cache.release_feeds = Default::default();
-                                self.release_feeds_processed = false;
+                                promise.release_feeds = None;
+                                cache.release_feeds = Default::default();
+                                *groups_processed_flag = false;
                             }
                         });
                     });
@@ -623,8 +597,34 @@ impl eframe::App for App {
 
                     ScrollArea::vertical()
                         .auto_shrink([false; 2])
-                        .show(ui, |ui| match release_feeds_status {
-                            Some(Ok(_)) => self.draw_release_cards(ui),
+                        .show(ui, |ui| match promise.release_feeds.as_ref().expect("field should be Some type").ready() {
+                            Some(Ok(_)) => {
+                                // * Draw release cards
+                                let group_name = &filter_group_by_combobox[*filter_group_by_combobox_idx];
+                                let entry_text = filter_release_entry_box;
+                                for item in &cache.release_feeds {
+                                    if (group_name == "all" || group_name == &item.group)
+                                        && (entry_text.is_empty() || item.name.contains(entry_text.as_str()))
+                                    {
+                                        const PADDING: f32 = 3.;
+                                        ui.add_space(PADDING);
+                                        ui.horizontal(|ui| {
+                                            ui.label(&item.name);
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                                                ui.style_mut().visuals.hyperlink_color =
+                                                    egui::Color32::from_rgb(0, 255, 255);
+                                                ui.hyperlink_to("Magnet Link ⤴", &item.magnet);
+                                                ui.style_mut().visuals.hyperlink_color =
+                                                    egui::Color32::from_rgb(236, 135, 10);
+                                                ui.hyperlink_to("Torrent ⤴", &item.torrent_url)
+                                            });
+                                        });
+                                        ui.add_space(PADDING);
+                                        ui.separator();
+                                    }
+                                }
+                                // * <<<<<<<<<< Draw release cards - END >>>>>>>>>>
+                            },
                             Some(Err(err)) => {
                                 ui.label(RichText::new(err).color(egui::Color32::LIGHT_RED));
                             }
