@@ -29,7 +29,7 @@ pub struct App {
     // cloned states of some promises
     ventoy_update_dir: Option<Result<PathBuf, String>>,
     ventoy_update_bin: Option<PathBuf>,
-    release_feeds_processed: bool
+    is_groups_processed: bool
 }
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
@@ -149,7 +149,7 @@ impl eframe::App for App {
             filter_group_by_combobox_idx, 
             ventoy_update_dir, 
             ventoy_update_bin, 
-            release_feeds_processed: groups_processed_flag } = self;
+            is_groups_processed} = self;
 
         // ! why's rust analyzer dead for this chunk of code. What's going on with it?
         let release_feeds_promise = promise.release_feeds.get_or_insert_with(|| {
@@ -207,7 +207,7 @@ impl eframe::App for App {
 
         if let Some(Ok(feeds)) = release_feeds_promise.ready() {
             // * run only once at first frame
-            if !*groups_processed_flag {
+            if !*is_groups_processed {
                 let mut group_duplicates = Vec::new();
                 let mut groups = feeds
                     .iter()
@@ -226,7 +226,7 @@ impl eframe::App for App {
                 // 'all' the default group
                 groups.insert(0, "all".to_string());
                 *filter_group_by_combobox = groups;
-                *groups_processed_flag = true;
+                *is_groups_processed = true;
             }
         };
 
@@ -400,7 +400,7 @@ impl eframe::App for App {
                                                 let release_tag_name = release.tag_name.clone();
                                                 ehttp::fetch(request, move |response| {
                                                     let pkg_status = response.and_then(|response| {
-                                                        // ! wow...what bootiphul code...rustfmt...aarghaagaaargh
+                                                        // ! wow...what bootiphul code...rustfmt...aarghaagaaargh (I manually formatted this later)
                                                         match update::write_resp_to_file(response, &pkg_path)
                                                         {
                                                             Ok(_) => {
@@ -589,7 +589,7 @@ impl eframe::App for App {
                             if ui.button("🔃").clicked() {
                                 promise.release_feeds = None;
                                 cache.release_feeds = Default::default();
-                                *groups_processed_flag = false;
+                                *is_groups_processed = false;
                             }
                         });
                     });
