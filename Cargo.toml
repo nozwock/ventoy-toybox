@@ -16,6 +16,8 @@ eframe = { version = "0.20" } # features = ["persistence"]
 dirs = "4.0"
 image = { version = "0.24", optional = true }
 confy = { version = "0.5.1", default-features = false, features = ["ron_conf"] }
+tracing-subscriber = "0.3"
+tracing = "0.1.37"
 
 [build-dependencies]
 # https://github.com/mxre/winres/issues/40

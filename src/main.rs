@@ -7,6 +7,8 @@ use crate::gui::app;
 use eframe::epaint::vec2;
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let native_options = eframe::NativeOptions {
         initial_window_size: Some(vec2(700.0, 500.0)),
         min_window_size: Some(vec2(500.0, 250.0)),

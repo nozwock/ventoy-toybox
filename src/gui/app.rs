@@ -10,6 +10,7 @@ use crate::{
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
 use serde::{Deserialize, Serialize};
+use tracing::{debug, error};
 
 use super::{PromptDialog, VentoyUpdateFrames};
 
@@ -92,7 +93,7 @@ impl App {
         } else {
             None
         };
-        dbg!(&cache.ventoy_update_pkg);
+        debug!("Cached ventoy release pkg: {:#?}", cache.ventoy_update_pkg);
 
         // Set custom font styles for the app
         configure_fonts(&cc.egui_ctx);
@@ -176,7 +177,7 @@ impl eframe::App for App {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // Store cache on exit
-        _ = dbg!(confy::store_path(defines::app_cache_path(), &self.cache));
+        debug!("Storing cache on exit: {:?}", confy::store_path(defines::app_cache_path(), &self.cache));
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -206,8 +207,8 @@ impl eframe::App for App {
                         ))?)
                         .map_err(|e| e.to_string())
                     });
-                    if release_feeds.is_err() {
-                        dbg!(&release_feeds);
+                    if let Err(err) = &release_feeds {
+                        error!("Error fetching release feeds: {}", err);
                     }
                     sender.send(release_feeds);
                     ctx.request_repaint();
@@ -231,7 +232,7 @@ impl eframe::App for App {
                         ))?)
                         .map_err(|e| e.to_string())
                     });
-                    dbg!(&ventoy_release);
+                    debug!("Fetching ventoy release pkg information: {:#?}", ventoy_release);
                     sender.send(ventoy_release);
                     ctx.request_repaint();
                 });
@@ -384,7 +385,8 @@ impl eframe::App for App {
                                             let cached_pkg = cached_pkg.unwrap();
                                             let ventoy_bin_dir = cached_pkg.path.parent().unwrap()
                                                 .join(format!("ventoy-{}-{}", release.tag_name, native_os));
-                                            fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
+                                            debug!("Path to ventoy release pkg binary accessed in 'Downloading' frame: {:?}", ventoy_bin_dir);
+                                            fs::create_dir_all(&ventoy_bin_dir).unwrap();
                                             let send = extract_pkg(cached_pkg.path.as_path(), ventoy_bin_dir.as_path())
                                                 .map(|_| (ventoy_bin_dir, cached_pkg.clone()));
                                             sender.send(send);
@@ -420,7 +422,8 @@ impl eframe::App for App {
                                                     "ventoy-{}-{}",
                                                     release.tag_name, native_os
                                                 ));
-                                                fs::create_dir_all(dbg!(&ventoy_bin_dir)).unwrap();
+                                                debug!("Path to ventoy release pkg binary accessed in 'Downloading' frame: {:?}", ventoy_bin_dir);
+                                                fs::create_dir_all(&ventoy_bin_dir).unwrap();
 
 
                                                 ehttp::fetch(request, move |response| {
@@ -435,7 +438,7 @@ impl eframe::App for App {
                                                             Err(e) => Err(e.to_string()),
                                                         }
                                                     });
-                                                    dbg!(&pkg_status);
+                                                    debug!("Fetching ventoy release pkg: {:#?}", pkg_status);
                                                     sender.send(pkg_status);
                                                     ctx.request_repaint();
                                                 });
@@ -477,17 +480,16 @@ impl eframe::App for App {
                         }
                         VentoyUpdateFrames::Done => {
                             if self.ventoy_update_bin.is_none() {
-                                self.ventoy_update_bin = dbg!(
-                                    utils::find_file(
-                                        self.ventoy_update_dir
-                                            .as_ref()
-                                            .expect("pkg must exist if reached `Done` frame arm, i.e. bin must also exist")
-                                            .as_ref()
-                                            .expect("err case will only exist in `Failed` frame arm")
-                                            .as_path(),
-                                        update::ventoy_bin_name(),
-                                    )
+                                self.ventoy_update_bin = utils::find_file(
+                                    self.ventoy_update_dir
+                                        .as_ref()
+                                        .expect("pkg must exist if reached `Done` frame arm, i.e. bin must also exist")
+                                        .as_ref()
+                                        .expect("err case will only exist in `Failed` frame arm")
+                                        .as_path(),
+                                    update::ventoy_bin_name(),
                                 );
+                                debug!("Path to ventoy release pkg binary accessed in 'Done' frame: {:?}", self.ventoy_update_bin);
                             }
 
                             ui.vertical_centered(|ui| {
@@ -517,10 +519,10 @@ impl eframe::App for App {
                                     .button(RichText::new("🗖 Launch Ventoy2Disk").size(32.))
                                     .clicked()
                                 {
-                                    let ventoy_bin_path = dbg!(self
+                                    let ventoy_bin_path = self
                                         .ventoy_update_bin
                                         .as_ref()
-                                        .unwrap());
+                                        .unwrap();
                                     #[cfg(windows)]
                                     {
                                         match utils::runas_admin(ventoy_bin_path) {
@@ -536,9 +538,8 @@ impl eframe::App for App {
                                     }
                                     #[cfg(target_os = "linux")]
                                     {
-                                        match dbg!(
-                                            std::process::Command::new(ventoy_bin_path).spawn()
-                                        ) {
+                                        match std::process::Command::new(ventoy_bin_path).spawn()
+                                        {
                                             Ok(_) => self.prompt.ventoy_launch_info.visible = true,
                                             Err(e) => {
                                                 self.prompt.ventoy_launch_err.visible = true;
