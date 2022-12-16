@@ -1,0 +1,68 @@
+name: Bug Report
+description: File a bug report here
+title: "Title here"
+labels: ["bug"]
+body:
+    - type: checkboxes
+      id: new-issue
+      attributes:
+          label: New issue
+          description: First look if there is already a similar bug report. If there is, upvote the issue with 👍
+          options:
+              - label: I confirm this isn't a duplicate issue
+                required: true
+    - type: textarea
+      id: bug-description
+      attributes:
+          label: Describe the bug
+          description: A clear and concise description of what the bug is. An image is good, a gif or movie is better!
+      validations:
+          required: true
+    - type: textarea
+      id: to-reproduce
+      attributes:
+          label: To Reproduce
+          description: Steps to reproduce the behavior.
+          placeholder: |
+              1. Go to '...'
+              2. Cick on '...'
+              3. Scroll down to '...'
+              4. See error
+    - type: textarea
+      id: logs
+      attributes:
+          label: Logs
+          description: |
+              Get the app logs by running the app with `RUST_LOG` flag set to `debug`, like so:
+              ```sh
+              RUST_LOG=debug cargo run
+              ```
+          placeholder: |
+              <details>
+              <summary>LOGS</summary>
+
+              ```
+              Copy paste the logs here...
+              ```
+
+              </details>
+      validations:
+          required: true
+    - type: input
+      id: version
+      attributes:
+          label: App version
+          description: Version of the app you're on.
+          placeholder: "0.4.0, main, 99f3978 or etc..."
+      validations:
+          required: true
+    - type: textarea
+      id: specs
+      attributes:
+          label: System Information
+          placeholder: |
+              - OS: Windows
+              - GPU: Ryzen 7 5700G iGPU
+              ...
+      validations:
+          required: true
