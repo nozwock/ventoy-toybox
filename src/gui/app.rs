@@ -183,7 +183,7 @@ impl eframe::App for App {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // I hate the way this is being done...but ok T~T
 
         // ! why's rust analyzer dead for this chunk of code. What's going on with it?
@@ -650,6 +650,11 @@ impl eframe::App for App {
                 }
             }
         });
+
+        // On web, the browser controls the gui zoom.
+        if !frame.is_web() {
+            egui::gui_zoom::zoom_with_keyboard_shortcuts(ctx, frame.info().native_pixels_per_point);
+        }
     }
 }
 
