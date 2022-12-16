@@ -10,7 +10,7 @@ use crate::{
 use eframe::egui::{self, RichText, ScrollArea};
 use poll_promise::Promise;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use super::{PromptDialog, VentoyUpdateFrames};
 
@@ -177,7 +177,8 @@ impl eframe::App for App {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         // Store cache on exit
-        debug!("Storing cache on exit: {:?}", confy::store_path(defines::app_cache_path(), &self.cache));
+        let cache_path = defines::app_cache_path();
+        debug!("Storing cache in {:?}: {:?}", cache_path, confy::store_path(&cache_path, &self.cache));
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
@@ -232,7 +233,10 @@ impl eframe::App for App {
                         ))?)
                         .map_err(|e| e.to_string())
                     });
-                    debug!("Fetching ventoy release pkg information: {:#?}", ventoy_release);
+                    match &ventoy_release {
+                        Ok(release) => debug!("Fetching ventoy releases information: {:#?}", release),
+                        Err(err) => error!("Error fetching ventoy releases information: {}", err)
+                    }
                     sender.send(ventoy_release);
                     ctx.request_repaint();
                 });
@@ -349,6 +353,7 @@ impl eframe::App for App {
                                 ui.add_space(8.);
                                 if ui.button(RichText::new("⮋ Download").size(32.)).clicked() {
                                     self.frame.ventoy_update = VentoyUpdateFrames::Downloading;
+                                    info!("Entered `{:?}` frame", self.frame.ventoy_update);
                                 }
                             });
                         }
@@ -385,7 +390,7 @@ impl eframe::App for App {
                                             let cached_pkg = cached_pkg.unwrap();
                                             let ventoy_bin_dir = cached_pkg.path.parent().unwrap()
                                                 .join(format!("ventoy-{}-{}", release.tag_name, native_os));
-                                            debug!("Path to ventoy release pkg binary accessed in 'Downloading' frame: {:?}", ventoy_bin_dir);
+                                            debug!("Path to ventoy release pkg binary: {:?}", ventoy_bin_dir);
                                             fs::create_dir_all(&ventoy_bin_dir).unwrap();
                                             let send = extract_pkg(cached_pkg.path.as_path(), ventoy_bin_dir.as_path())
                                                 .map(|_| (ventoy_bin_dir, cached_pkg.clone()));
@@ -422,7 +427,7 @@ impl eframe::App for App {
                                                     "ventoy-{}-{}",
                                                     release.tag_name, native_os
                                                 ));
-                                                debug!("Path to ventoy release pkg binary accessed in 'Downloading' frame: {:?}", ventoy_bin_dir);
+                                                debug!("Path to ventoy release pkg binary: {:?}", ventoy_bin_dir);
                                                 fs::create_dir_all(&ventoy_bin_dir).unwrap();
 
 
@@ -438,7 +443,10 @@ impl eframe::App for App {
                                                             Err(e) => Err(e.to_string()),
                                                         }
                                                     });
-                                                    debug!("Fetching ventoy release pkg: {:#?}", pkg_status);
+                                                    match &pkg_status {
+                                                        Ok(pkg) => debug!("Fetching ventoy release pkg: {:#?}", pkg),
+                                                        Err(err) => error!("Error fetching ventoy release pkg: {}", err),
+                                                    }
                                                     sender.send(pkg_status);
                                                     ctx.request_repaint();
                                                 });
@@ -467,6 +475,7 @@ impl eframe::App for App {
                                 Some(Err(err)) => {
                                     self.ventoy_update_dir = Some(Err(err.to_string()));
                                     self.frame.ventoy_update = VentoyUpdateFrames::Failed;
+                                    info!("Entered `{:?}` frame", self.frame.ventoy_update);
                                 }
                                 Some(Ok(pkg)) => {
                                     self.ventoy_update_dir = Some(Ok(pkg.0.clone()));
@@ -475,6 +484,7 @@ impl eframe::App for App {
                                     self.cache.ventoy_update_pkg = Some(ReleasePkg { version: pkg.1.version.clone(), path: pkg.1.path.clone() });
 
                                     self.frame.ventoy_update = VentoyUpdateFrames::Done;
+                                    info!("Entered `{:?}` frame", self.frame.ventoy_update);
                                 }
                             }
                         }
@@ -489,7 +499,7 @@ impl eframe::App for App {
                                         .as_path(),
                                     update::ventoy_bin_name(),
                                 );
-                                debug!("Path to ventoy release pkg binary accessed in 'Done' frame: {:?}", self.ventoy_update_bin);
+                                debug!("Path to ventoy release pkg binary: {:?}", self.ventoy_update_bin);
                             }
 
                             ui.vertical_centered(|ui| {
@@ -568,6 +578,7 @@ impl eframe::App for App {
                                     if ui.button("🔃").clicked() {
                                         self.promise.ventoy_update_pkg = None;
                                         self.frame.ventoy_update = VentoyUpdateFrames::Downloading;
+                                        info!("Entered `{:?}` frame", self.frame.ventoy_update);
                                     }
                                 });
                             });
