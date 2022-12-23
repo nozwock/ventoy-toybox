@@ -19,9 +19,9 @@ build-host:
 build-linux:
     rustup target add {{target-linux}}
     cross b --release --target {{target-linux}}
-    cp -T ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux.bin
-    cd {{dist_dir}} && tar -czf {{target_name}}-linux.tar.gz {{target_name}}-linux.bin
-    rm {{dist_dir}}/{{target_name}}-linux.bin
+    cp -T ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{replace(bin_name, "-", "_")}}.bin
+    cd {{dist_dir}} && tar -czf {{target_name}}-linux.tar.gz {{replace(bin_name, "-", "_")}}.bin
+    rm {{dist_dir}}/{{replace(bin_name, "-", "_")}}.bin
 # upx --best --lzma ./target/{{target-linux}}/release/{{bin_name}}
 # cp -T ./target/{{target-linux}}/release/{{bin_name}} {{dist_dir}}/{{target_name}}-linux-upxed.bin
 
