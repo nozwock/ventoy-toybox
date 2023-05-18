@@ -14,13 +14,12 @@ A desktop application consisting of some helper utilities for [ventoy][ventoy]
 
 ## Features
 
-- Rust
-- Blazingly Fast
-- Fetch updates for [ventoy][ventoy]
+- Easy to use
 - Browse through latest linux distro releases
 - Download linux distro images via torrents
 - Filter releases by distro or torrent file name
-- Easy to use
+- Fetch updates for [ventoy][ventoy]
+- Blazingly Fast
 - Messy code
 - Even more messier code courtesy of `rustfmt` refusing to work
 
@@ -52,15 +51,12 @@ cargo build --release
 - Scaling issues on x11 KDE Plasma; UI being too big
 
 ## FAQs
-1. Wait a minute...you just could've made a simple script for fetching updates, what's the point of all this?
-    - Well...you wouldn't have this blazingly fast feature packed app then, would you? haha..ha..hah...
+1. Wait a minute...couldn't you have just made a simple script to fetch updates? What's the purpose of all this?
+    - Well...you wouldn't be enjoying this blazingly fast and feature-packed app then, would you? Haha..ha..hah...
 
 ## Licenese
 
 [MIT](https://choosealicense.com/licenses/mit/)
-
-<sub>rustfmt work damnit! I desperately need you plz 🥲</sub><br/>
-<sub>don't look at README's revision history...don't...</sub>
 
 [ventoy]: https://github.com/ventoy/Ventoy
 [release]: https://github.com/nozwock/ventoy-toybox/releases/latest
